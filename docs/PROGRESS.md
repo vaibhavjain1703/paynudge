@@ -8,7 +8,7 @@ Done when: sign up and log in work, CI is green.
 
 - [x] Spring Boot 4.1 scaffold builds; tests run against Postgres 16 via Testcontainers
 - [x] Flyway V1 schema, env-based config, `Clock` bean, JSON error shape (schema invariants pinned by `SchemaConstraintsTest`)
-- [ ] Auth: signup, login, `GET /api/me` (BCrypt, short-lived HS256 JWT)
+- [x] Auth: signup, login, `GET /api/me` (BCrypt, 2h HS256 JWT, owner-scoped lookups, CORS). Login rate limit deferred to Day 8 with the other Bucket4j limits
 - [ ] CI workflow (backend `mvn verify`)
 - [ ] Frontend scaffold: Next.js 16, Tailwind 4, shadcn/ui, design tokens, login/signup
 - [ ] Hello-world deploy (API on Render, Postgres on Supabase, frontend on Vercel)
