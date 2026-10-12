@@ -12,6 +12,8 @@ import com.paynudge.channel.EmailDeliveryException;
 import com.paynudge.channel.EmailSender;
 import com.paynudge.common.ApiException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 class EmailCodeService {
+
+	private static final Logger log = LoggerFactory.getLogger(EmailCodeService.class);
 
 	static final Duration CODE_TTL = Duration.ofMinutes(10);
 
@@ -89,6 +93,7 @@ class EmailCodeService {
 			this.emailSender.send(LoginCodeEmail.render(email, code, CODE_TTL));
 		}
 		catch (EmailDeliveryException ex) {
+			log.warn("Could not send a sign-in code", ex);
 			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, EMAIL_UNAVAILABLE,
 					"We couldn't send the email right now. Please try again in a minute.");
 		}

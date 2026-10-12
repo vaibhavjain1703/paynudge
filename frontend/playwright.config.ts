@@ -36,7 +36,8 @@ export default defineConfig({
       command: "mvn -q spring-boot:run",
       cwd: "../backend",
       url: `${E2E_API_URL}/actuator/health`,
-      env: { ...inheritedEnv, SERVER_PORT: "8180", CORS_ALLOWED_ORIGINS: E2E_WEB_URL },
+      // Codes always go to Mailpit here, even when secrets.local.env sends real mail through Brevo.
+      env: { ...inheritedEnv, SERVER_PORT: "8180", CORS_ALLOWED_ORIGINS: E2E_WEB_URL, MAIL_PROVIDER: "smtp" },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },

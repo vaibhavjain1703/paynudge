@@ -8,10 +8,8 @@ import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.stereotype.Component;
 
 /** Sends through the SMTP server in {@code spring.mail.*}: the local Mailpit inbox by default. */
-@Component
 class SmtpEmailSender implements EmailSender {
 
 	private final JavaMailSender mailSender;

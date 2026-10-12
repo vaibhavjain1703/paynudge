@@ -205,6 +205,7 @@ function CodeStep({
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">We emailed a 6-digit code to</p>
         <p className="font-medium break-all">{email}</p>
+        <p className="text-xs text-muted-foreground">Not in your inbox? Check spam or promotions.</p>
       </div>
 
       <form

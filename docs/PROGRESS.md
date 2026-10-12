@@ -19,7 +19,7 @@ Done when: sign up and log in work, CI is green.
   `npm audit --omit=dev` is clean. Five remaining dev-only findings sit in ESLint's `braces` chain with no upstream fix.
 - `npm run e2e` runs on its own ports (API 8180, web 3100, build dir `.next-e2e`) because Playwright's output folder
   triggers dev-server Fast Refresh reloads that drop in-flight form submissions.
-- Deploy is blocked on credentials: every value in `secrets.local.env` except `JWT_SECRET` is still empty.
+- Deploy credentials (Supabase, Render, Vercel) are in `secrets.local.env` and verified; deploy itself still pending.
 - Motion pass: landing timeline demo (the signature visual, ahead of Day 8), staggered entrances, count-up numbers,
   animated form errors with a shake on rejected submits, theme crossfade, bell "nudge" on the logo. Everything
   honours `prefers-reduced-motion` (the demo shows its finished state instead of looping).
@@ -29,4 +29,6 @@ Done when: sign up and log in work, CI is green.
 - Passwordless sign-in: 6-digit email codes (10 min, single use, 5 guesses, 60 s resend, 5/hour, HMAC-stored) and
   "Continue with Google" (ID token verified against Google's keys: issuer, audience, expiry, verified email). One
   email is one account across password, code and Google. Local mail goes to Mailpit (docker-compose `mail`).
-  Render's free plan blocks outbound SMTP (since Sept 2025), so production needs an HTTPS email API: pending choice.
+  Render's free plan blocks outbound SMTP (since Sept 2025), so real mail goes through Brevo's HTTPS API
+  (`MAIL_PROVIDER=brevo`, free 300/day). A Gmail sender cannot be DKIM-authenticated by Brevo, so it rewrites the
+  sender domain and early mails may land in spam; a custom domain fixes that later. e2e always forces Mailpit.

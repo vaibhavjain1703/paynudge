@@ -1,8 +1,8 @@
 package com.paynudge.channel;
 
 /**
- * Sends one email. Implementations differ by transport (SMTP locally; an HTTPS email API in production, since
- * Render's free plan blocks outbound SMTP). Tests replace this with a recording fake.
+ * Sends one email. Implementations differ by transport (SMTP to the local Mailpit inbox, or Brevo's HTTPS API for
+ * real inboxes, since Render's free plan blocks outbound SMTP). Tests replace this with a recording fake.
  */
 public interface EmailSender {
 
