@@ -1,0 +1,21 @@
+# Local development services. Production runs the API on Render and Postgres on Supabase.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: paynudge-db
+    environment:
+      POSTGRES_DB: paynudge
+      POSTGRES_USER: paynudge
+      POSTGRES_PASSWORD: paynudge
+    ports:
+      - "5432:5432"
+    volumes:
+      - paynudge-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paynudge -d paynudge"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  paynudge-db:
