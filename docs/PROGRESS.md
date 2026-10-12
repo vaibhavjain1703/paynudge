@@ -25,3 +25,4 @@ Done when: sign up and log in work, CI is green.
   honours `prefers-reduced-motion` (the demo shows its finished state instead of looping).
 - `mvn spring-boot:run` uses the full JIT (`optimizedLaunch=false`); with C1 only, BCrypt was slow enough to time out
   e2e sign-ups. The e2e suite also warms both servers in `e2e/global-setup.ts` before running.
+- Postgres moved from 16 to 17 everywhere (docker-compose, Testcontainers) to match Supabase, which runs 17.11.

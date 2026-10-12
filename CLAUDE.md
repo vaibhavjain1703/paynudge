@@ -10,7 +10,7 @@ Design source of truth: `docs/DESIGN.md` (from the original project guide). Prog
 - `backend/` Spring Boot 4.1 (Java 21, Maven) - modular monolith, package per module under `com.paynudge`:
   `auth, business, customer, dues, policy, engine, channel, payment, assistant, realtime, security, common`
 - `frontend/` Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui
-- `docker-compose.yml` local Postgres 16 for development
+- `docker-compose.yml` local Postgres 17 for development (same major version as production on Supabase)
 - `.github/workflows/` CI (build + tests) and deploy
 - `docs/benchmarks/` raw k6 / JaCoCo / test output backing every number quoted in the README
 

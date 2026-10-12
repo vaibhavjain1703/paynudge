@@ -1,7 +1,7 @@
 # Local development services. Production runs the API on Render and Postgres on Supabase.
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: paynudge-db
     environment:
       POSTGRES_DB: paynudge
