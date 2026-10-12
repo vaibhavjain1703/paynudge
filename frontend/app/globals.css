@@ -55,6 +55,44 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+@theme {
+  /* The brand gesture: a bell giving a small nudge. */
+  --animate-nudge: nudge 400ms ease-in-out;
+
+  @keyframes nudge {
+    0%,
+    100% {
+      rotate: 0deg;
+    }
+    20% {
+      rotate: -14deg;
+    }
+    40% {
+      rotate: 12deg;
+    }
+    60% {
+      rotate: -8deg;
+    }
+    80% {
+      rotate: 4deg;
+    }
+  }
+}
+
+/* Theme switches crossfade (ThemeToggle uses the View Transitions API where available). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 /* Light theme. The app is dark-first: <html> starts with .dark and the inline script in layout.tsx removes it. */
 :root {
   color-scheme: light;

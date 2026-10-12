@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { AnimatePresence, motion, useAnimate } from "motion/react";
 import {
   Controller,
   type Control,
@@ -9,10 +10,12 @@ import {
   type UseFormSetError,
 } from "react-hook-form";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
+import { easeOut, expand, usePrefersReducedMotion, useSafeTransition } from "@/lib/motion";
 
 export function TextField<T extends FieldValues>({
   control,
@@ -27,6 +30,7 @@ export function TextField<T extends FieldValues>({
   type?: "text" | "email" | "password";
   autoComplete?: string;
 }) {
+  const transition = useSafeTransition({ duration: 0.2, ease: easeOut });
   return (
     <Controller
       control={control}
@@ -41,11 +45,44 @@ export function TextField<T extends FieldValues>({
             autoComplete={autoComplete}
             aria-invalid={fieldState.invalid}
           />
-          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          <AnimatePresence initial={false}>
+            {fieldState.invalid && (
+              <motion.div key="error" {...expand} transition={transition} className="overflow-hidden">
+                <FieldError errors={[fieldState.error]} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Field>
       )}
     />
   );
+}
+
+/** The form-level error (wrong credentials, server down). Slides open instead of pushing the form down at once. */
+export function FormAlert({ message }: { message?: string }) {
+  const transition = useSafeTransition({ duration: 0.25, ease: easeOut });
+  return (
+    <AnimatePresence initial={false}>
+      {message && (
+        <motion.div key="alert" {...expand} transition={transition} className="overflow-hidden">
+          <Alert variant="destructive">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** A short horizontal shake for a rejected submit. Attach `scope` to the element to shake. */
+export function useShake<T extends HTMLElement>() {
+  const [scope, animate] = useAnimate<T>();
+  const reduced = usePrefersReducedMotion();
+  const shake = () => {
+    if (reduced || !scope.current) return;
+    animate(scope.current, { x: [0, -6, 6, -4, 4, 0] }, { duration: 0.35, ease: "easeInOut" });
+  };
+  return [scope, shake] as const;
 }
 
 export function SubmitButton({ pending, children }: { pending: boolean; children: React.ReactNode }) {

@@ -14,6 +14,9 @@ const inheritedEnv = Object.fromEntries(
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
+  // Eight browsers plus the API and web server share one machine; leave room for that.
+  expect: { timeout: 10_000 },
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

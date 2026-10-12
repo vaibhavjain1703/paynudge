@@ -1,6 +1,7 @@
 "use client";
 
 import { LogOut } from "lucide-react";
+import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -9,6 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLogout, useMe } from "@/lib/auth";
+import { easeOut } from "@/lib/motion";
 import { useToken } from "@/lib/session";
 
 /** Everything behind sign-in. Without a token (or once the API rejects it) the visitor goes to /login. */
@@ -47,7 +49,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function BusinessName() {
   const me = useMe();
   if (me.data) {
-    return <span className="truncate text-sm font-medium">{me.data.business.name}</span>;
+    return (
+      <motion.span
+        initial={{ opacity: 0, x: -4 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.25, ease: easeOut }}
+        className="truncate text-sm font-medium"
+      >
+        {me.data.business.name}
+      </motion.span>
+    );
   }
   return <Skeleton className="h-4 w-28" />;
 }

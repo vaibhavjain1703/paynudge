@@ -4,8 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import { AuthCard } from "@/components/auth/auth-card";
-import { applyServerError, SubmitButton, TextField } from "@/components/forms";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { applyServerError, FormAlert, SubmitButton, TextField, useShake } from "@/components/forms";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { type SignupInput, signupSchema, useSignup } from "@/lib/auth";
 
@@ -16,10 +15,15 @@ export function SignupForm() {
     defaultValues: { businessName: "", email: "", password: "" },
   });
 
-  const onSubmit = form.handleSubmit((values) =>
-    signup
-      .mutateAsync(values)
-      .catch((error: unknown) => applyServerError(error, form.setError, { EMAIL_TAKEN: "email" })),
+  const [formRef, shake] = useShake<HTMLFormElement>();
+
+  const onSubmit = form.handleSubmit(
+    (values) =>
+      signup.mutateAsync(values).catch((error: unknown) => {
+        applyServerError(error, form.setError, { EMAIL_TAKEN: "email" });
+        shake();
+      }),
+    shake,
   );
 
   const serverError = form.formState.errors.root?.server?.message;
@@ -30,13 +34,9 @@ export function SignupForm() {
       description="Set up your business once. Reminders run on their own after that."
       footer={{ prompt: "Already have an account?", href: "/login", label: "Log in" }}
     >
-      <form onSubmit={onSubmit} noValidate>
+      <form ref={formRef} onSubmit={onSubmit} noValidate>
         <FieldGroup>
-          {serverError && (
-            <Alert variant="destructive">
-              <AlertDescription>{serverError}</AlertDescription>
-            </Alert>
-          )}
+          <FormAlert message={serverError} />
           <TextField
             control={form.control}
             name="businessName"

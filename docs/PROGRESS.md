@@ -20,3 +20,8 @@ Done when: sign up and log in work, CI is green.
 - `npm run e2e` runs on its own ports (API 8180, web 3100, build dir `.next-e2e`) because Playwright's output folder
   triggers dev-server Fast Refresh reloads that drop in-flight form submissions.
 - Deploy is blocked on credentials: every value in `secrets.local.env` except `JWT_SECRET` is still empty.
+- Motion pass: landing timeline demo (the signature visual, ahead of Day 8), staggered entrances, count-up numbers,
+  animated form errors with a shake on rejected submits, theme crossfade, bell "nudge" on the logo. Everything
+  honours `prefers-reduced-motion` (the demo shows its finished state instead of looping).
+- `mvn spring-boot:run` uses the full JIT (`optimizedLaunch=false`); with C1 only, BCrypt was slow enough to time out
+  e2e sign-ups. The e2e suite also warms both servers in `e2e/global-setup.ts` before running.

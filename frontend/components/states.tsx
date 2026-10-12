@@ -1,9 +1,11 @@
 "use client";
 
 import { AlertTriangle, type LucideIcon } from "lucide-react";
+import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
+import { fadeUp } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /** Shown when a view's data failed to load. Always offers a retry. */
@@ -21,8 +23,11 @@ export function ErrorState({
   const message =
     error instanceof ApiError ? error.message : "Something went wrong. Please try again.";
   return (
-    <div
+    <motion.div
       role="alert"
+      variants={fadeUp}
+      initial="hidden"
+      animate="show"
       className={cn(
         "flex flex-col items-center gap-3 rounded-xl border border-dashed p-8 text-center",
         className,
@@ -36,7 +41,7 @@ export function ErrorState({
       <Button variant="outline" size="sm" onClick={onRetry}>
         Try again
       </Button>
-    </div>
+    </motion.div>
   );
 }
 
@@ -61,9 +66,14 @@ export function EmptyState({
         className,
       )}
     >
-      <div className="rounded-full bg-accent p-3 text-accent-foreground">
+      <motion.div
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", bounce: 0.5, duration: 0.4, delay: 0.25 }}
+        className="rounded-full bg-accent p-3 text-accent-foreground"
+      >
         <Icon className="size-5" aria-hidden="true" />
-      </div>
+      </motion.div>
       <div className="max-w-sm space-y-1">
         <p className="font-medium">{title}</p>
         <p className="text-sm text-muted-foreground">{description}</p>

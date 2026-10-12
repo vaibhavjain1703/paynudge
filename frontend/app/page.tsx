@@ -1,7 +1,9 @@
-import { BellRing, CircleCheck, ShieldCheck } from "lucide-react";
+import { ArrowRight, BellRing, CircleCheck, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { Wordmark } from "@/components/brand";
+import { TimelineDemo } from "@/components/landing/timeline-demo";
+import { Stagger, StaggerItem } from "@/components/motion/stagger";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
@@ -25,7 +27,7 @@ const points = [
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className="flex min-h-svh flex-col overflow-x-clip">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Wordmark />
         <div className="flex items-center gap-1">
@@ -36,37 +38,57 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-14 px-4 py-16 sm:px-6">
-        <section className="max-w-2xl space-y-6">
-          <p className="font-mono text-xs tracking-widest text-primary uppercase">
-            For tuition centres, gyms and PGs
-          </p>
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            Dues that collect themselves.
-          </h1>
-          <p className="text-lg text-pretty text-muted-foreground">
-            Import a sheet of who owes what, choose how firmly to follow up, and PayNudge sends every reminder on
-            time until each customer pays.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link href="/signup">Get started</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/login">I have an account</Link>
-            </Button>
-          </div>
-        </section>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-16 px-4 py-12 sm:px-6 lg:py-16">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
+          <Stagger as="section" className="max-w-2xl space-y-6" gap={0.08}>
+            <StaggerItem>
+              <p className="font-mono text-xs tracking-widest text-primary uppercase">
+                For tuition centres, gyms and PGs
+              </p>
+            </StaggerItem>
+            <StaggerItem>
+              <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+                Dues that collect themselves.
+              </h1>
+            </StaggerItem>
+            <StaggerItem>
+              <p className="text-lg text-pretty text-muted-foreground">
+                Import a sheet of who owes what, choose how firmly to follow up, and PayNudge sends every reminder on
+                time until each customer pays.
+              </p>
+            </StaggerItem>
+            <StaggerItem className="flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/signup">
+                  Get started
+                  <ArrowRight
+                    className="transition-transform duration-200 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/login">I have an account</Link>
+              </Button>
+            </StaggerItem>
+          </Stagger>
 
-        <section className="grid gap-6 sm:grid-cols-3">
+          <Stagger className="w-full max-w-md justify-self-center lg:justify-self-end" gap={0.1}>
+            <StaggerItem>
+              <TimelineDemo />
+            </StaggerItem>
+          </Stagger>
+        </div>
+
+        <Stagger as="section" onView className="grid gap-6 sm:grid-cols-3" gap={0.08}>
           {points.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="space-y-2">
+            <StaggerItem key={title} className="space-y-2">
               <Icon className="size-5 text-primary" aria-hidden="true" />
               <h2 className="font-medium">{title}</h2>
               <p className="text-sm text-muted-foreground">{body}</p>
-            </div>
+            </StaggerItem>
           ))}
-        </section>
+        </Stagger>
       </main>
     </div>
   );
