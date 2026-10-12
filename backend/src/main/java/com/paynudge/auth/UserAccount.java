@@ -21,7 +21,8 @@ public class UserAccount {
 	@Column(nullable = false, unique = true)
 	private String email;
 
-	@Column(name = "password_hash", nullable = false)
+	/** Null for owners who sign in only with an email code or Google. */
+	@Column(name = "password_hash")
 	private String passwordHash;
 
 	@Column(name = "created_at", nullable = false, updatable = false)

@@ -8,8 +8,19 @@ function uniqueEmail() {
   return `owner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
+/** Switches to the password form and waits for it: the passwordless panel fades out first. */
+async function switchToPassword(page: Page) {
+  await page.getByRole("button", { name: "Use a password instead" }).click();
+  await expect(page.getByLabel("Password")).toBeVisible();
+}
+
+async function openPasswordForm(page: Page, path: "/login" | "/signup") {
+  await page.goto(path);
+  await switchToPassword(page);
+}
+
 async function fillSignup(page: Page, email: string) {
-  await page.goto("/signup");
+  await openPasswordForm(page, "/signup");
   await page.getByLabel("Business name").fill("Bright Tuition");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
@@ -33,6 +44,7 @@ test("an owner signs up, lands on the dashboard, logs out and logs back in", asy
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login$/);
 
+  await switchToPassword(page);
   await page.getByLabel("Email").fill(email.toUpperCase());
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Log in" }).click();
@@ -40,7 +52,7 @@ test("an owner signs up, lands on the dashboard, logs out and logs back in", asy
 });
 
 test("wrong credentials show one message that does not reveal which part was wrong", async ({ page }) => {
-  await page.goto("/login");
+  await openPasswordForm(page, "/login");
   await page.getByLabel("Email").fill(uniqueEmail());
   await page.getByLabel("Password").fill("not-the-password");
   await page.getByRole("button", { name: "Log in" }).click();
@@ -50,7 +62,7 @@ test("wrong credentials show one message that does not reveal which part was wro
 });
 
 test("the signup form catches bad input before calling the server", async ({ page }) => {
-  await page.goto("/signup");
+  await openPasswordForm(page, "/signup");
   await page.getByLabel("Email").fill("not-an-email");
   await page.getByLabel("Password").fill("short");
   await page.getByRole("button", { name: "Create account" }).click();

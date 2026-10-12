@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({ TestcontainersConfiguration.class, TestClockConfiguration.class })
+@Import({ TestcontainersConfiguration.class, TestClockConfiguration.class, TestGoogleConfiguration.class })
 public abstract class IntegrationTest {
 
 	@Autowired
@@ -31,11 +31,15 @@ public abstract class IntegrationTest {
 	@Autowired
 	protected JdbcTemplate jdbc;
 
+	@Autowired
+	protected RecordingEmailSender emails;
+
 	private List<String> tables;
 
 	@BeforeEach
 	void resetState() {
 		this.clock.reset();
+		this.emails.reset();
 		if (this.tables == null) {
 			this.tables = this.jdbc.queryForList(
 					"SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",

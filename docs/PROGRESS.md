@@ -26,3 +26,7 @@ Done when: sign up and log in work, CI is green.
 - `mvn spring-boot:run` uses the full JIT (`optimizedLaunch=false`); with C1 only, BCrypt was slow enough to time out
   e2e sign-ups. The e2e suite also warms both servers in `e2e/global-setup.ts` before running.
 - Postgres moved from 16 to 17 everywhere (docker-compose, Testcontainers) to match Supabase, which runs 17.11.
+- Passwordless sign-in: 6-digit email codes (10 min, single use, 5 guesses, 60 s resend, 5/hour, HMAC-stored) and
+  "Continue with Google" (ID token verified against Google's keys: issuer, audience, expiry, verified email). One
+  email is one account across password, code and Google. Local mail goes to Mailpit (docker-compose `mail`).
+  Render's free plan blocks outbound SMTP (since Sept 2025), so production needs an HTTPS email API: pending choice.

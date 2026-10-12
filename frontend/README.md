@@ -14,7 +14,7 @@ npm run dev                  # http://localhost:3000, needs the API running (see
 
 ```bash
 npm run lint && npm run typecheck && npm run build
-npm run e2e                  # Playwright against the real API; needs `docker compose up -d db`
+npm run e2e                  # Playwright against the real API; needs `docker compose up -d` (Postgres + Mailpit)
 ```
 
 `npm run e2e` starts its own API on :8180 and a production build on :3100 (built into `.next-e2e`), so it never

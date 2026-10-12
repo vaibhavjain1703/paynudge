@@ -32,7 +32,10 @@ class SecurityConfig implements WebMvcConfigurer {
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.requestCache(cache -> cache.disable())
 			.authorizeHttpRequests(auth -> auth
-				.requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login", "/api/auth/email/start",
+						"/api/auth/email/verify", "/api/auth/google")
+				.permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/auth/providers").permitAll()
 				.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 				.requestMatchers("/error").permitAll()
 				.anyRequest().authenticated())

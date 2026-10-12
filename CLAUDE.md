@@ -46,6 +46,6 @@ Design source of truth: `docs/DESIGN.md` (from the original project guide). Prog
 ## Local development (Windows, everything on D:)
 
 - Backend: `cd backend; mvn spring-boot:run` (uses the installed `mvn`; the Maven wrapper is for CI). Tests need Docker Desktop running.
-- Local DB: `docker compose up -d db` from the repo root.
+- Local DB and mail: `docker compose up -d` from the repo root (Postgres on 5432; Mailpit inbox for sign-in codes at http://localhost:8025).
 - Frontend: `cd frontend; npm run dev`.
 - Tool caches are already redirected to D:\Dev (Maven repo, npm cache, Docker data); do not install anything to C:.

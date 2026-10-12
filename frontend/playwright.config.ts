@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * End-to-end tests against the real API and a production build of the web app, on their own ports (API 8180,
  * web 3100) so they never touch a running `npm run dev` or `mvn spring-boot:run`.
- * Needs the local database: `docker compose up -d db` from the repo root.
+ * Needs the local database and Mailpit: `docker compose up -d` from the repo root.
  */
 export const E2E_API_URL = "http://localhost:8180";
 const E2E_WEB_URL = "http://localhost:3100";
@@ -18,6 +18,8 @@ export default defineConfig({
   // Eight browsers plus the API and web server share one machine; leave room for that.
   expect: { timeout: 10_000 },
   fullyParallel: true,
+  // Four browsers keep an 8 GB laptop responsive next to the API, web server and Docker.
+  workers: process.env.CI ? 2 : 4,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: "list",

@@ -17,5 +17,13 @@ services:
       timeout: 3s
       retries: 20
 
+  # Local inbox: the API sends sign-in codes here over SMTP (port 1025); read them at http://localhost:8025.
+  mail:
+    image: axllent/mailpit:v1.31.3
+    container_name: paynudge-mail
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   paynudge-db:

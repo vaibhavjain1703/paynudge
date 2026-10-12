@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { SignupForm } from "@/components/auth/signup-form";
+import { AuthScreen } from "@/components/auth/auth-screen";
 
 export const metadata: Metadata = { title: "Create account" };
 
 export default function SignupPage() {
-  return <SignupForm />;
+  return <AuthScreen intent="signup" />;
 }

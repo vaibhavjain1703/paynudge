@@ -2,7 +2,7 @@ package com.paynudge.auth;
 
 import jakarta.validation.Valid;
 
-import com.paynudge.auth.AuthDtos.AuthResponse;
+import com.paynudge.auth.AuthDtos.AuthResult;
 import com.paynudge.auth.AuthDtos.LoginRequest;
 import com.paynudge.auth.AuthDtos.MeResponse;
 import com.paynudge.auth.AuthDtos.SignupRequest;
@@ -29,12 +29,12 @@ class AuthController {
 	/** Creates the owner's login and their business, and signs them in. */
 	@PostMapping("/auth/signup")
 	@ResponseStatus(HttpStatus.CREATED)
-	AuthResponse signup(@Valid @RequestBody SignupRequest request) {
+	AuthResult signup(@Valid @RequestBody SignupRequest request) {
 		return this.auth.signup(request);
 	}
 
 	@PostMapping("/auth/login")
-	AuthResponse login(@Valid @RequestBody LoginRequest request) {
+	AuthResult login(@Valid @RequestBody LoginRequest request) {
 		return this.auth.login(request);
 	}
 
