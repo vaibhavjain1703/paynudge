@@ -1,20 +1,35 @@
-/** Reads sign-in codes from the local Mailpit inbox (docker-compose service "mail"). */
+/** Reads mail from the local Mailpit inbox (docker-compose service "mail"). */
 const MAILPIT = "http://localhost:8025";
 
 type Summary = { ID: string };
 
-export async function latestCode(email: string, { notIn = [] as string[] } = {}): Promise<string> {
-  for (let attempt = 0; attempt < 40; attempt++) {
+export type Mail = { Subject: string; Text: string };
+
+/** The newest message to this address, waiting up to `timeoutMs` for one that passes `accept`. */
+export async function latestMessage(
+  email: string,
+  { timeoutMs = 10_000, accept = () => true }: { timeoutMs?: number; accept?: (mail: Mail) => boolean } = {},
+): Promise<Mail> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     const search = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
     const { messages = [] } = (await search.json()) as { messages?: Summary[] };
     if (messages.length > 0) {
-      const message = (await (await fetch(`${MAILPIT}/api/v1/message/${messages[0].ID}`)).json()) as {
-        Text: string;
-      };
-      const code = message.Text.match(/\b(\d{6})\b/)?.[1];
-      if (code && !notIn.includes(code)) return code;
+      const mail = (await (await fetch(`${MAILPIT}/api/v1/message/${messages[0].ID}`)).json()) as Mail;
+      if (accept(mail)) return mail;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error(`No sign-in code arrived for ${email}`);
+  throw new Error(`No matching email arrived for ${email}`);
+}
+
+/** The six-digit sign-in code in the newest email to this address. */
+export async function latestCode(email: string, { notIn = [] as string[] } = {}): Promise<string> {
+  const mail = await latestMessage(email, {
+    accept: (candidate) => {
+      const code = candidate.Text.match(/\b(\d{6})\b/)?.[1];
+      return Boolean(code && !notIn.includes(code));
+    },
+  });
+  return mail.Text.match(/\b(\d{6})\b/)![1];
 }

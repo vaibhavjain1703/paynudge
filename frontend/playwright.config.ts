@@ -18,8 +18,9 @@ export default defineConfig({
   // Eight browsers plus the API and web server share one machine; leave room for that.
   expect: { timeout: 10_000 },
   fullyParallel: true,
-  // Four browsers keep an 8 GB laptop responsive next to the API, web server and Docker.
-  workers: process.env.CI ? 2 : 4,
+  // Two browsers keep an 8 GB laptop (and its Docker VM) responsive next to the API and web server; four were no
+  // faster and once pushed Docker Desktop over.
+  workers: 2,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
@@ -37,7 +38,14 @@ export default defineConfig({
       cwd: "../backend",
       url: `${E2E_API_URL}/actuator/health`,
       // Codes always go to Mailpit here, even when secrets.local.env sends real mail through Brevo.
-      env: { ...inheritedEnv, SERVER_PORT: "8180", CORS_ALLOWED_ORIGINS: E2E_WEB_URL, MAIL_PROVIDER: "smtp" },
+      env: {
+        ...inheritedEnv,
+        SERVER_PORT: "8180",
+        CORS_ALLOWED_ORIGINS: E2E_WEB_URL,
+        MAIL_PROVIDER: "smtp",
+        // Links in reminders (pay, unsubscribe) point at the e2e web server.
+        APP_URL: E2E_WEB_URL,
+      },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },

@@ -23,10 +23,10 @@ final class StarterPolicies {
 			Thank you!
 			{business_name}""";
 
-	private static final String DUE_TODAY_BODY = """
+	private static final String DUE_BODY = """
 			Hi {name},
 
-			Your payment of {amount} to {business_name} is due today ({due_date}). You can pay here:
+			Your payment of {amount} to {business_name} is due on {due_date}. You can pay here:
 			{pay_link}
 
 			If you have already paid, please ignore this message.""";
@@ -50,7 +50,7 @@ final class StarterPolicies {
 	static final List<Starter> ALL = List.of(
 			new Starter("Friendly then firm",
 					List.of(email("remind_1", -2, "friendly", "A quick reminder from {business_name}", FRIENDLY_BODY),
-							email("remind_2", 0, "neutral", "{amount} is due today", DUE_TODAY_BODY),
+							email("remind_2", 0, "neutral", "Payment of {amount} due on {due_date}", DUE_BODY),
 							email("remind_3", 3, "firm", "Your payment of {amount} is overdue", OVERDUE_BODY),
 							owner("notify_owner", 7),
 							email("final", 10, "final_notice", "Final reminder: {amount} was due on {due_date}",
@@ -60,7 +60,7 @@ final class StarterPolicies {
 							email("remind_2", 2, "neutral", "A gentle nudge about {amount}", OVERDUE_BODY),
 							owner("notify_owner", 7))),
 			new Starter("Firm",
-					List.of(email("remind_1", 0, "neutral", "{amount} is due today", DUE_TODAY_BODY),
+					List.of(email("remind_1", 0, "neutral", "Payment of {amount} due on {due_date}", DUE_BODY),
 							email("remind_2", 1, "firm", "Your payment of {amount} is overdue", OVERDUE_BODY),
 							email("remind_3", 3, "firm", "Second notice: {amount} is overdue", OVERDUE_BODY),
 							owner("notify_owner", 5),

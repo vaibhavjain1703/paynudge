@@ -128,7 +128,7 @@ class EngineTest extends IntegrationTest {
 		}
 
 		assertThat(this.channel.sent()).extracting(OutboundMessage::subject)
-			.containsExactly("A quick reminder from Bright Tuition", "₹1,500 is due today",
+			.containsExactly("A quick reminder from Bright Tuition", "Payment of ₹1,500 due on 20 Jan 2026",
 					"Your payment of ₹1,500 is overdue");
 		assertThat(this.emails.sent()).hasSize(1);
 		assertThat(this.emails.last().to()).isEqualTo("asha@example.com");
