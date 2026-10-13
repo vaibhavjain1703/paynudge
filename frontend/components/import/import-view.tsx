@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { BellRing, CheckCircle2, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -10,7 +10,9 @@ import { FileDrop } from "@/components/import/file-drop";
 import { ColumnPicker, PreviewSummary, PreviewTable } from "@/components/import/import-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
+import { useMe } from "@/lib/auth";
 import {
   type ColumnMapping,
   type ImportPreview,
@@ -19,7 +21,9 @@ import {
   useCommitImport,
   usePreviewImport,
 } from "@/lib/imports";
+import { formatDateTime } from "@/lib/money";
 import { easeOut, useSafeTransition } from "@/lib/motion";
+import { type Policy, summarizePolicy, usePolicies } from "@/lib/policies";
 
 type Stage =
   | { step: "pick" }
@@ -29,9 +33,12 @@ type Stage =
 export function ImportView() {
   const [stage, setStage] = useState<Stage>({ step: "pick" });
   const [error, setError] = useState<string>();
+  const [chosenPolicy, setChosenPolicy] = useState<number>();
   const preview = usePreviewImport();
   const commit = useCommitImport();
+  const policies = usePolicies();
   const transition = useSafeTransition({ duration: 0.15, ease: easeOut });
+  const policyId = chosenPolicy ?? policies.data?.[0]?.id;
 
   const check = async (file: File, mapping?: ColumnMapping) => {
     setError(undefined);
@@ -47,10 +54,10 @@ export function ImportView() {
     }
   };
 
-  const importRows = async (file: File, mapping: ColumnMapping) => {
+  const importRows = async (file: File, mapping: ColumnMapping, policy: number) => {
     setError(undefined);
     try {
-      setStage({ step: "done", result: await commit.mutateAsync({ file, mapping }) });
+      setStage({ step: "done", result: await commit.mutateAsync({ file, mapping, policyId: policy }) });
     } catch (failure) {
       setError(messageOf(failure));
     }
@@ -59,9 +66,9 @@ export function ImportView() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Import from a spreadsheet</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Import dues from a spreadsheet</h1>
         <p className="text-sm text-muted-foreground">
-          Check every row before anything is saved. Importing the same file twice never creates duplicates.
+          Check every row before anything is saved. Importing the same file twice never reminds anyone twice.
         </p>
       </div>
 
@@ -110,28 +117,21 @@ export function ImportView() {
               </>
             )}
 
-            <div className="sticky bottom-0 -mx-4 space-y-3 border-t bg-background/90 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
-              <FormAlert message={error} />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {stage.preview.summary.invalid > 0
-                    ? `${stage.preview.summary.invalid} rows with problems will be skipped. Fix them in the file and import it again.`
-                    : "Every row is ready."}
-                </p>
-                <Button
-                  disabled={
-                    stage.preview.missingColumns.length > 0 ||
-                    stage.preview.summary.valid === 0 ||
-                    preview.isPending ||
-                    commit.isPending
-                  }
-                  onClick={() => void importRows(stage.file, stage.preview.mapping)}
-                >
-                  {commit.isPending && <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />}
-                  Import {stage.preview.summary.valid} {stage.preview.summary.valid === 1 ? "row" : "rows"}
-                </Button>
-              </div>
-            </div>
+            <PolicyPicker
+              policies={policies.data}
+              loading={policies.isPending}
+              value={policyId}
+              onChange={setChosenPolicy}
+              disabled={commit.isPending}
+            />
+
+            <ImportBar
+              preview={stage.preview}
+              error={error}
+              busy={preview.isPending || commit.isPending || policyId === undefined}
+              importing={commit.isPending}
+              onImport={() => policyId !== undefined && void importRows(stage.file, stage.preview.mapping, policyId)}
+            />
           </motion.div>
         )}
 
@@ -145,7 +145,104 @@ export function ImportView() {
   );
 }
 
+function PolicyPicker({
+  policies,
+  loading,
+  value,
+  onChange,
+  disabled,
+}: {
+  policies?: Policy[];
+  loading: boolean;
+  value?: number;
+  onChange: (id: number) => void;
+  disabled: boolean;
+}) {
+  const selected = policies?.find((policy) => policy.id === value);
+  return (
+    <section aria-labelledby="policy-heading" className="space-y-3">
+      <div className="space-y-1">
+        <h2 id="policy-heading" className="font-medium">
+          Reminders
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Every imported due follows this policy. It stops the moment someone pays.{" "}
+          <Link href="/policies" className="font-medium text-primary underline-offset-4 hover:underline">
+            See the policies
+          </Link>
+        </p>
+      </div>
+      {loading || !policies ? (
+        <Skeleton className="h-8 w-full max-w-sm" />
+      ) : (
+        <div className="space-y-1.5">
+          <label htmlFor="policy" className="sr-only">
+            Reminder policy
+          </label>
+          <select
+            id="policy"
+            value={value ?? ""}
+            disabled={disabled}
+            onChange={(event) => onChange(Number(event.target.value))}
+            className="h-8 w-full max-w-sm rounded-lg border border-input bg-transparent px-2 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+          >
+            {policies.map((policy) => (
+              <option key={policy.id} value={policy.id}>
+                {policy.name}
+              </option>
+            ))}
+          </select>
+          {selected && <p className="text-sm text-muted-foreground">{summarizePolicy(selected)}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ImportBar({
+  preview,
+  error,
+  busy,
+  importing,
+  onImport,
+}: {
+  preview: ImportPreview;
+  error?: string;
+  busy: boolean;
+  importing: boolean;
+  onImport: () => void;
+}) {
+  const { summary } = preview;
+  const ready = summary.valid - summary.alreadyImported;
+  const notes = [
+    summary.invalid > 0 && `${summary.invalid} with problems will be skipped; fix them in the file and import it again.`,
+    summary.alreadyImported > 0 && `${summary.alreadyImported} were imported before and are skipped.`,
+  ].filter(Boolean);
+  return (
+    <div className="sticky bottom-0 -mx-4 space-y-3 border-t bg-background/90 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
+      <FormAlert message={error} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {preview.missingColumns.length > 0
+            ? "Choose the missing columns first."
+            : ready === 0 && summary.alreadyImported > 0
+              ? "Every valid row was imported before. Nothing new to add."
+              : notes.length > 0
+                ? `Rows: ${notes.join(" ")}`
+                : "Every row is ready."}
+        </p>
+        <Button disabled={preview.missingColumns.length > 0 || ready === 0 || busy} onClick={onImport}>
+          {importing && <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />}
+          Import {ready} {ready === 1 ? "due" : "dues"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ImportDone({ result, onAgain }: { result: ImportResult; onAgain: () => void }) {
+  const me = useMe();
+  const timeZone = me.data?.business.timezone ?? "Asia/Kolkata";
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
@@ -159,20 +256,28 @@ function ImportDone({ result, onAgain }: { result: ImportResult; onAgain: () => 
         </motion.div>
         <div className="space-y-1" role="status">
           <p className="text-lg font-semibold">
-            Imported {result.importedRows} {result.importedRows === 1 ? "row" : "rows"}
+            {result.importedRows > 0
+              ? `Imported ${result.importedRows} ${result.importedRows === 1 ? "due" : "dues"}`
+              : "Nothing new to import"}
           </p>
           <p className="text-sm text-muted-foreground">
             {result.customersCreated} new {result.customersCreated === 1 ? "customer" : "customers"} ·{" "}
-            {result.customersMatched} already in your list · {result.skippedRows} skipped
+            {result.customersMatched} already in your list · {result.alreadyImported} imported before ·{" "}
+            {result.skippedRows} with problems
           </p>
-          <p className="text-xs text-muted-foreground">Dues are added once reminder policies are set up.</p>
+          {result.firstReminderAt && (
+            <p className="flex items-center justify-center gap-1.5 text-sm">
+              <BellRing className="size-4 text-primary" aria-hidden="true" />
+              First reminder goes out {formatDateTime(result.firstReminderAt, timeZone)}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onAgain}>
             Import another file
           </Button>
           <Button asChild>
-            <Link href="/customers">View customers</Link>
+            <Link href="/dues">View dues</Link>
           </Button>
         </div>
       </CardContent>

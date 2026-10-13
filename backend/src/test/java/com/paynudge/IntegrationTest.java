@@ -30,7 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({ TestcontainersConfiguration.class, TestClockConfiguration.class, TestGoogleConfiguration.class })
+@Import({ TestcontainersConfiguration.class, TestClockConfiguration.class, TestGoogleConfiguration.class,
+		TestChannelConfiguration.class })
 public abstract class IntegrationTest {
 
 	protected static final String OWNER_PASSWORD = "correct-horse-battery";
@@ -48,6 +49,9 @@ public abstract class IntegrationTest {
 	protected RecordingEmailSender emails;
 
 	@Autowired
+	protected RecordingChannel channel;
+
+	@Autowired
 	protected JsonMapper json;
 
 	private List<String> tables;
@@ -56,6 +60,7 @@ public abstract class IntegrationTest {
 	void resetState() {
 		this.clock.reset();
 		this.emails.reset();
+		this.channel.reset();
 		if (this.tables == null) {
 			this.tables = this.jdbc.queryForList(
 					"SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",

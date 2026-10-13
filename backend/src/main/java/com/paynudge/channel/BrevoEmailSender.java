@@ -32,16 +32,17 @@ class BrevoEmailSender implements EmailSender {
 	}
 
 	@Override
-	public void send(EmailMessage message) {
+	public String send(EmailMessage message) {
 		SendRequest request = new SendRequest(this.sender, List.of(new Contact(message.to(), null)),
 				message.subject(), message.text(), message.html());
 		try {
-			this.client.post()
+			Sent sent = this.client.post()
 				.uri("/v3/smtp/email")
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(request)
 				.retrieve()
-				.toBodilessEntity();
+				.body(Sent.class);
+			return (sent != null) ? sent.messageId() : null;
 		}
 		catch (RestClientResponseException ex) {
 			throw new EmailDeliveryException("Brevo rejected the email: " + ex.getStatusCode().value() + " "
@@ -54,6 +55,10 @@ class BrevoEmailSender implements EmailSender {
 
 	private static String abbreviate(String body) {
 		return (body.length() <= MAX_ERROR_BODY) ? body : body.substring(0, MAX_ERROR_BODY) + "...";
+	}
+
+	/** Brevo's answer to a send. */
+	record Sent(String messageId) {
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)

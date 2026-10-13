@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, SkipForward } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -99,8 +99,11 @@ export function PreviewSummary({ preview }: { preview: ImportPreview }) {
   const { summary } = preview;
   const stats = [
     { label: "rows", value: summary.rows, tone: "" },
-    { label: "ready", value: summary.valid, tone: "text-success" },
+    { label: "ready", value: summary.valid - summary.alreadyImported, tone: "text-success" },
     { label: "need fixing", value: summary.invalid, tone: summary.invalid > 0 ? "text-destructive" : "" },
+    ...(summary.alreadyImported > 0
+      ? [{ label: "imported before", value: summary.alreadyImported, tone: "" }]
+      : []),
     { label: "new customers", value: summary.newCustomers, tone: "" },
     { label: "already in your list", value: summary.existingCustomers, tone: "" },
   ];
@@ -230,6 +233,17 @@ function RowStatus({ row }: { row: PreviewRow }) {
         <AlertCircle aria-hidden="true" />
         Needs fixing
       </Badge>
+    );
+  }
+  if (row.alreadyImported) {
+    return (
+      <div className="space-y-0.5">
+        <Badge variant="outline">
+          <SkipForward aria-hidden="true" />
+          Skipped
+        </Badge>
+        {row.note && <p className="text-xs text-muted-foreground">{row.note}</p>}
+      </div>
     );
   }
   return (

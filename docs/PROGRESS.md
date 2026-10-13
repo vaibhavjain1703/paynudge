@@ -57,3 +57,30 @@ Done when: a messy CSV imports with clear row errors.
   stalled the API under parallel sign-in codes. SMTP sends now run on a small platform-thread pool.
 - Messy-file handling lives in `CsvReader` (byte order mark, Windows-1252, `;`/tab separators, `sep=` line, Excel
   workbook detection, 5,000-row and 2 MB limits); `backend/src/test/resources/csv/messy-dues.csv` is the reference.
+
+## Day 3: dues, policies, step scheduling, claiming worker, email sandbox channel
+
+Done when: a due schedules and its first reminder sends.
+
+- [x] Policies: three read-only starters (Friendly then firm, Gentle, Firm) plus owner policies through
+  `GET`/`POST`/`PUT`/`DELETE /api/policies`; rules: 1 to 8 steps in date order, a day between customer emails, every
+  email names {name}, {amount} and {pay_link}; read-only Policies page
+- [x] Dues: `POST`/`GET /api/dues`, `GET /api/dues/{id}`; a due copies its policy (`policy_snapshot`) and gets every
+  step in one transaction, at 10:00 business time, moved out of quiet hours; Dues page and dashboard summary
+- [x] Import commit takes a policy and creates the dues; a row fingerprint (`dues.import_key`, V4) makes re-imports
+  and repeated rows skip, so nobody is reminded twice
+- [x] Engine: worker loops on virtual threads claim with `FOR UPDATE SKIP LOCKED` and a 60 s lease, lock the due,
+  skip paid/cancelled/opted-out dues, record the message (unique per due, step, channel) and send through the
+  `Channel` (EmailChannel, its own sandbox SMTP); NOTIFY_OWNER emails the owner and escalates the due
+- [x] e2e: an imported overdue due's first reminder reaches the customer in Mailpit with pay and unsubscribe links
+
+### Notes
+
+- A due created late skips steps whose time has passed, except the latest customer email, which goes out now
+  (after quiet hours) unless the next email is under a day away. Starter wording ("due on {due_date}") stays true
+  when sent late.
+- Failed sends roll back (message row included) and retry after 30 s, 1, 2, 4 min, then FAILED. Day 4 adds the
+  lease reaper, permanent-vs-transient errors, runtime quiet hours, minimum gap and daily cap.
+- Customer reminders never reach real customers: Mailpit locally; production needs a sandbox decision at deploy
+  (Mailtrap's free sandbox is ~50 emails/month; alternative: deliver every reminder to the owner's own inbox).
+- e2e runs two browsers: four were no faster on this 8 GB machine and once pushed Docker Desktop over.

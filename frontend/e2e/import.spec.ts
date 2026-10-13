@@ -19,8 +19,8 @@ test("a messy spreadsheet imports with clear row errors", async ({ page, request
   await expect(page.getByLabel(/^Due date/)).toHaveValue("Due Date");
 
   // Every bad row says what is wrong, in the cell that is wrong.
-  await expect(page.getByRole("button", { name: "Import 4 rows" })).toBeEnabled();
-  await expect(page.getByText("7 rows with problems will be skipped")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import 4 dues" })).toBeEnabled();
+  await expect(page.getByText("7 with problems will be skipped")).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Sana Khan" })).toContainText(
     "Use a number like 1500 or 1,500.50",
   );
@@ -31,22 +31,34 @@ test("a messy spreadsheet imports with clear row errors", async ({ page, request
     "Same customer as row 2",
   );
   await expect(page.getByRole("row").filter({ hasText: "Diya Rao" })).toContainText("₹1,500.50");
+
+  // The reminder policy every imported due will follow.
+  await expect(page.getByLabel("Reminder policy")).toHaveValue(/\d+/);
+  await expect(page.getByText("4 emails, from 2 days before to 10 days after")).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("import-preview.png"), fullPage: true });
 
   await page.getByRole("button", { name: /Only problems/ }).click();
   await expect(page.getByRole("row").filter({ hasText: "Diya Rao" })).toBeHidden();
   await expect(page.getByRole("row").filter({ hasText: "Sana Khan" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Import 4 rows" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Imported 4 rows" })).toContainText(
-    "3 new customers · 0 already in your list · 7 skipped",
-  );
+  await page.getByRole("button", { name: "Import 4 dues" }).click();
+  const result = page.getByRole("status").filter({ hasText: "Imported 4 dues" });
+  await expect(result).toContainText("3 new customers · 0 already in your list · 0 imported before · 7 with problems");
+  await expect(result).toContainText("First reminder goes out 3 Nov 2026, 10:00");
 
-  await page.getByRole("link", { name: "View customers" }).click();
-  await expect(page).toHaveURL(/\/customers$/);
+  await page.getByRole("link", { name: "View dues" }).click();
+  await expect(page).toHaveURL(/\/dues$/);
+  await expect(page.getByRole("row")).toHaveCount(5); // header + 4 dues
   for (const name of ["Aarav Shah", "Diya Rao", "Kabir Mehta"]) {
-    await expect(page.getByRole("row", { name: new RegExp(name) })).toBeVisible();
+    await expect(page.getByRole("row", { name: new RegExp(name) }).first()).toBeVisible();
   }
+  await page.screenshot({ path: test.info().outputPath("dues.png"), fullPage: true });
+
+  // The same file again adds nothing: every valid row was imported before.
+  await page.goto("/import");
+  await page.getByLabel("Choose a CSV file").setInputFiles(MESSY_CSV);
+  await expect(page.getByText("Every valid row was imported before.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import 0 dues" })).toBeDisabled();
 });
 
 test("columns the guess missed can be chosen by hand", async ({ page, request }) => {
@@ -66,8 +78,8 @@ test("columns the guess missed can be chosen by hand", async ({ page, request })
   await page.getByLabel(/^Amount/).selectOption("How much");
   await page.getByLabel(/^Due date/).selectOption("When");
 
-  await page.getByRole("button", { name: "Import 1 row" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Imported 1 row" })).toBeVisible();
+  await page.getByRole("button", { name: "Import 1 due" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Imported 1 due" })).toBeVisible();
 });
 
 test("an Excel workbook gets told how to save it as CSV", async ({ page, request }) => {
