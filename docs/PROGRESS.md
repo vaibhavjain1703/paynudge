@@ -69,6 +69,8 @@ Done when: a due schedules and its first reminder sends.
   step in one transaction, at 10:00 business time, moved out of quiet hours; Dues page and dashboard summary
 - [x] Import commit takes a policy and creates the dues; a row fingerprint (`dues.import_key`, V4) makes re-imports
   and repeated rows skip, so nobody is reminded twice
+- [x] Import page keeps the file being checked (preview and chosen policy) while the owner visits other pages; it is
+  held in memory only, so importing, logging out or reloading lets it go
 - [x] Engine: worker loops on virtual threads claim with `FOR UPDATE SKIP LOCKED` and a 60 s lease, lock the due,
   skip paid/cancelled/opted-out dues, record the message (unique per due, step, channel) and send through the
   `Channel` (EmailChannel, its own sandbox SMTP); NOTIFY_OWNER emails the owner and escalates the due

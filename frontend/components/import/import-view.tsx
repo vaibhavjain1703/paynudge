@@ -3,7 +3,7 @@
 import { BellRing, CheckCircle2, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FormAlert } from "@/components/forms";
 import { FileDrop } from "@/components/import/file-drop";
@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { useMe } from "@/lib/auth";
+import { inMemory, loadImportDraft, saveImportDraft } from "@/lib/import-draft";
 import {
   type ColumnMapping,
   type ImportPreview,
@@ -31,22 +32,36 @@ type Stage =
   | { step: "done"; result: ImportResult };
 
 export function ImportView() {
-  const [stage, setStage] = useState<Stage>({ step: "pick" });
+  const [restored] = useState(loadImportDraft);
+  const [stage, setStage] = useState<Stage>(
+    restored ? { step: "review", file: restored.file, preview: restored.preview } : { step: "pick" },
+  );
   const [error, setError] = useState<string>();
-  const [chosenPolicy, setChosenPolicy] = useState<number>();
+  const [chosenPolicy, setChosenPolicy] = useState(restored?.policyId);
   const preview = usePreviewImport();
   const commit = useCommitImport();
   const policies = usePolicies();
   const transition = useSafeTransition({ duration: 0.15, ease: easeOut });
-  const policyId = chosenPolicy ?? policies.data?.[0]?.id;
+  // The first policy, unless the owner chose another one that still exists.
+  const policyId = policies.data?.some((policy) => policy.id === chosenPolicy)
+    ? chosenPolicy
+    : policies.data?.[0]?.id;
 
-  const check = async (file: File, mapping?: ColumnMapping) => {
+  // The file under review survives a visit to another page; choosing another file or importing lets it go.
+  useEffect(() => {
+    saveImportDraft(
+      stage.step === "review" ? { file: stage.file, preview: stage.preview, policyId: chosenPolicy } : undefined,
+    );
+  }, [stage, chosenPolicy]);
+
+  const check = async (picked: File, mapping?: ColumnMapping) => {
     setError(undefined);
-    if (file.size > MAX_FILE_BYTES) {
+    if (picked.size > MAX_FILE_BYTES) {
       setError("This file is larger than 2 MB. Split it into smaller files.");
       return;
     }
     try {
+      const file = mapping ? picked : await inMemory(picked);
       setStage({ step: "review", file, preview: await preview.mutateAsync({ file, mapping }) });
     } catch (failure) {
       setError(messageOf(failure));
@@ -57,7 +72,9 @@ export function ImportView() {
   const importRows = async (file: File, mapping: ColumnMapping, policy: number) => {
     setError(undefined);
     try {
-      setStage({ step: "done", result: await commit.mutateAsync({ file, mapping, policyId: policy }) });
+      const result = await commit.mutateAsync({ file, mapping, policyId: policy });
+      saveImportDraft(undefined); // even when the owner has already left this page
+      setStage({ step: "done", result });
     } catch (failure) {
       setError(messageOf(failure));
     }
