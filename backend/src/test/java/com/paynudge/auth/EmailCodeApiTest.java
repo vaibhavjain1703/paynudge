@@ -10,7 +10,6 @@ import com.jayway.jsonpath.JsonPath;
 import com.paynudge.IntegrationTest;
 import com.paynudge.channel.EmailMessage;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -24,9 +23,6 @@ import static org.assertj.core.api.Assumptions.assumeThat;
 class EmailCodeApiTest extends IntegrationTest {
 
 	private static final Pattern CODE = Pattern.compile("\\b(\\d{6})\\b");
-
-	@Autowired
-	private JsonMapper json;
 
 	@Test
 	void aNewEmailGetsACodeThenNamesItsBusinessAndIsSignedIn() {

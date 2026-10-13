@@ -2,6 +2,7 @@
 
 import { Clock, FileSpreadsheet, Globe, Send } from "lucide-react";
 import { motion } from "motion/react";
+import Link from "next/link";
 
 import { PageSkeleton } from "@/components/app/app-shell";
 import { AnimatedNumber } from "@/components/motion/animated-number";
@@ -64,9 +65,14 @@ function SendingRules({ business }: { business: Business }) {
 
   return (
     <section aria-labelledby="sending-rules" className="space-y-3">
-      <h2 id="sending-rules" className="text-sm font-medium text-muted-foreground">
-        Sending rules
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 id="sending-rules" className="text-sm font-medium text-muted-foreground">
+          Sending rules
+        </h2>
+        <Button asChild variant="link" size="sm" className="px-0">
+          <Link href="/settings">Edit</Link>
+        </Button>
+      </div>
       <Stagger className="grid gap-4 sm:grid-cols-3" gap={0.06}>
         {rules.map(({ icon: Icon, label, value }) => (
           <StaggerItem key={label}>

@@ -23,6 +23,9 @@ public class Business {
 
 	public static final int DEFAULT_DAILY_SEND_CAP = 500;
 
+	/** The most messages one business may send in a day. An anti-spam limit, not a billing one. */
+	public static final int MAX_DAILY_SEND_CAP = 500;
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -67,6 +70,17 @@ public class Business {
 	/** A new business with the default timezone, quiet hours and send cap. */
 	public static Business createFor(long ownerId, String name, Instant now) {
 		return new Business(ownerId, name, now);
+	}
+
+	/** Replaces every editable setting. Callers validate first. */
+	void update(String name, String timezone, LocalTime quietStart, LocalTime quietEnd, String senderName,
+			int dailySendCap) {
+		this.name = name;
+		this.timezone = timezone;
+		this.quietStart = quietStart;
+		this.quietEnd = quietEnd;
+		this.senderName = senderName;
+		this.dailySendCap = dailySendCap;
 	}
 
 	public Long getId() {
