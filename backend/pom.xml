@@ -139,6 +139,15 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!-- mvn spring-boot:run reads ../secrets.local.env through the local profile -->
+					<profiles>
+						<profile>local</profile>
+					</profiles>
+					<!-- The default "optimized launch" adds -XX:TieredStopAtLevel=1, which disables the C2 JIT and makes
+					     BCrypt ~3x slower; under e2e load sign-ups took 10 s. Run with the same JIT as production. -->
+					<optimizedLaunch>false</optimizedLaunch>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

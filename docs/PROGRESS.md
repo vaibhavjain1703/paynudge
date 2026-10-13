@@ -7,8 +7,28 @@ Build plan: `docs/DESIGN.md` section 19. Newest entries at the bottom of each da
 Done when: sign up and log in work, CI is green.
 
 - [x] Spring Boot 4.1 scaffold builds; tests run against Postgres 16 via Testcontainers
-- [ ] Flyway V1 schema, env-based config, `Clock` bean, JSON error shape
-- [ ] Auth: signup, login, `GET /api/me` (BCrypt, short-lived HS256 JWT)
-- [ ] CI workflow (backend `mvn verify`)
-- [ ] Frontend scaffold: Next.js 16, Tailwind 4, shadcn/ui, design tokens, login/signup
+- [x] Flyway V1 schema, env-based config, `Clock` bean, JSON error shape (schema invariants pinned by `SchemaConstraintsTest`)
+- [x] Auth: signup, login, `GET /api/me` (BCrypt, 2h HS256 JWT, owner-scoped lookups, CORS). Login rate limit deferred to Day 8 with the other Bucket4j limits
+- [x] CI workflow (backend `mvn verify`, frontend lint/typecheck/build): green on the first run (PR #1, public repo github.com/vaibhavjain1703/paynudge)
+- [x] Frontend scaffold: Next.js 16.3.8, Tailwind 4, shadcn/ui (Radix, Nova), dark-first tokens, login/signup/dashboard shell; 12 Playwright e2e checks (desktop + mobile)
 - [ ] Hello-world deploy (API on Render, Postgres on Supabase, frontend on Vercel)
+
+### Notes
+
+- Next pinned to 16.3.8: 16.0.0 to 16.3.7 carry published advisories (image-optimizer SSRF, ISR cache poisoning).
+  `npm audit --omit=dev` is clean. Five remaining dev-only findings sit in ESLint's `braces` chain with no upstream fix.
+- `npm run e2e` runs on its own ports (API 8180, web 3100, build dir `.next-e2e`) because Playwright's output folder
+  triggers dev-server Fast Refresh reloads that drop in-flight form submissions.
+- Deploy credentials (Supabase, Render, Vercel) are in `secrets.local.env` and verified; deploy itself still pending.
+- Motion pass: landing timeline demo (the signature visual, ahead of Day 8), staggered entrances, count-up numbers,
+  animated form errors with a shake on rejected submits, theme crossfade, bell "nudge" on the logo. Everything
+  honours `prefers-reduced-motion` (the demo shows its finished state instead of looping).
+- `mvn spring-boot:run` uses the full JIT (`optimizedLaunch=false`); with C1 only, BCrypt was slow enough to time out
+  e2e sign-ups. The e2e suite also warms both servers in `e2e/global-setup.ts` before running.
+- Postgres moved from 16 to 17 everywhere (docker-compose, Testcontainers) to match Supabase, which runs 17.11.
+- Passwordless sign-in: 6-digit email codes (10 min, single use, 5 guesses, 60 s resend, 5/hour, HMAC-stored) and
+  "Continue with Google" (ID token verified against Google's keys: issuer, audience, expiry, verified email). One
+  email is one account across password, code and Google. Local mail goes to Mailpit (docker-compose `mail`).
+  Render's free plan blocks outbound SMTP (since Sept 2025), so real mail goes through Brevo's HTTPS API
+  (`MAIL_PROVIDER=brevo`, free 300/day). A Gmail sender cannot be DKIM-authenticated by Brevo, so it rewrites the
+  sender domain and early mails may land in spam; a custom domain fixes that later. e2e always forces Mailpit.

@@ -39,7 +39,7 @@ Key decisions:
 ## 5. Tech stack
 | Layer | Choice |
 | Backend | Java 21 (virtual threads), Spring Boot 3, Spring Security (JWT), Spring Data JPA, Flyway, Bean Validation |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 17 (Supabase in production) |
 | Frontend | Next.js (App Router), TypeScript, Tailwind, shadcn/ui, motion, TanStack Query, React Hook Form + Zod, Recharts |
 | Payments | Razorpay test mode (payment links and webhooks) |
 | Email | Sandbox provider (Mailtrap or similar) behind a Channel interface |
