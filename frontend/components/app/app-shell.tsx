@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { AppNav } from "@/components/app/app-nav";
 import { Wordmark } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
             {token && <LogoutButton />}
           </div>
+        </div>
+        <div className="mx-auto max-w-6xl px-2 sm:px-4">
+          <AppNav />
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">

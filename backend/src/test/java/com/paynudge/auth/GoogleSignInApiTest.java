@@ -9,7 +9,6 @@ import java.util.Map;
 import com.paynudge.IntegrationTest;
 import com.paynudge.TestGoogleConfiguration.GoogleIdTokens;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,9 +21,6 @@ class GoogleSignInApiTest extends IntegrationTest {
 
 	@Autowired
 	private GoogleIdTokens google;
-
-	@Autowired
-	private JsonMapper json;
 
 	@Test
 	void aNewGoogleUserNamesTheirBusinessAndIsSignedIn() {

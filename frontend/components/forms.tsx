@@ -12,25 +12,28 @@ import {
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { easeOut, expand, usePrefersReducedMotion, useSafeTransition } from "@/lib/motion";
 
-export function TextField<T extends FieldValues>({
+export function TextField<T extends FieldValues, TOut extends FieldValues = T>({
   control,
   name,
   label,
   type = "text",
   autoComplete,
+  inputMode,
+  description,
 }: {
-  control: Control<T>;
+  control: Control<T, unknown, TOut>;
   name: FieldPath<T>;
   label: string;
-  type?: "text" | "email" | "password";
+  type?: "text" | "email" | "password" | "time";
   autoComplete?: string;
+  inputMode?: "text" | "numeric" | "email";
+  description?: string;
 }) {
-  const transition = useSafeTransition({ duration: 0.2, ease: easeOut });
   return (
     <Controller
       control={control}
@@ -43,18 +46,70 @@ export function TextField<T extends FieldValues>({
             id={name}
             type={type}
             autoComplete={autoComplete}
+            inputMode={inputMode}
             aria-invalid={fieldState.invalid}
+            aria-describedby={description ? `${name}-description` : undefined}
           />
-          <AnimatePresence initial={false}>
-            {fieldState.invalid && (
-              <motion.div key="error" {...expand} transition={transition} className="overflow-hidden">
-                <FieldError errors={[fieldState.error]} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {description && <FieldDescription id={`${name}-description`}>{description}</FieldDescription>}
+          <AnimatedFieldError error={fieldState.error} />
         </Field>
       )}
     />
+  );
+}
+
+/** A native select styled like the inputs: fast with long lists, type-to-jump, and right on phones. */
+export function SelectField<T extends FieldValues, TOut extends FieldValues = T>({
+  control,
+  name,
+  label,
+  options,
+  description,
+}: {
+  control: Control<T, unknown, TOut>;
+  name: FieldPath<T>;
+  label: string;
+  options: { value: string; label: string }[];
+  description?: string;
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field, fieldState }) => (
+        <Field data-invalid={fieldState.invalid}>
+          <FieldLabel htmlFor={name}>{label}</FieldLabel>
+          <select
+            {...field}
+            id={name}
+            aria-invalid={fieldState.invalid}
+            aria-describedby={description ? `${name}-description` : undefined}
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {description && <FieldDescription id={`${name}-description`}>{description}</FieldDescription>}
+          <AnimatedFieldError error={fieldState.error} />
+        </Field>
+      )}
+    />
+  );
+}
+
+function AnimatedFieldError({ error }: { error?: { message?: string } }) {
+  const transition = useSafeTransition({ duration: 0.2, ease: easeOut });
+  return (
+    <AnimatePresence initial={false}>
+      {error && (
+        <motion.div key="error" {...expand} transition={transition} className="overflow-hidden">
+          <FieldError errors={[error]} />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -79,7 +79,8 @@ export function GoogleButton({
   return (
     <>
       <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={() => setLoaded(true)} />
-      <div ref={container} className="flex h-10 w-full justify-center" data-testid="google-button" />
+      {/* Google's iframe is a light document: in a dark page it would get an opaque white backdrop otherwise. */}
+      <div ref={container} className="flex h-10 w-full justify-center [color-scheme:light]" data-testid="google-button" />
     </>
   );
 }

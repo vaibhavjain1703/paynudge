@@ -2,10 +2,9 @@
 
 import { Clock, FileSpreadsheet, Globe, Send } from "lucide-react";
 import { motion } from "motion/react";
+import Link from "next/link";
 
 import { PageSkeleton } from "@/components/app/app-shell";
-import { AnimatedNumber } from "@/components/motion/animated-number";
-import { Stagger, StaggerItem } from "@/components/motion/stagger";
 import { EmptyState, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,25 +20,29 @@ export function DashboardView() {
 
   const { business } = me.data;
   return (
-    <Stagger className="space-y-8" gap={0.08}>
-      <StaggerItem className="space-y-1">
+    <div className="space-y-8">
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{business.name}</h1>
         <p className="text-sm text-muted-foreground">Signed in as {me.data.email}</p>
-      </StaggerItem>
+      </div>
 
-      <StaggerItem>
+      <div>
         <SendingRules business={business} />
-      </StaggerItem>
+      </div>
 
-      <StaggerItem>
+      <div>
         <EmptyState
           icon={FileSpreadsheet}
           title="No dues yet"
           description="Import a CSV of who owes what and when. PayNudge schedules every reminder and stops the moment someone pays."
-          action={<Button disabled>Import dues</Button>}
+          action={
+            <Button asChild>
+              <Link href="/import">Import dues</Link>
+            </Button>
+          }
         />
-      </StaggerItem>
-    </Stagger>
+      </div>
+    </div>
   );
 }
 
@@ -56,7 +59,7 @@ function SendingRules({ business }: { business: Business }) {
       label: "Daily send cap",
       value: (
         <>
-          <AnimatedNumber value={business.dailySendCap} /> messages
+          {business.dailySendCap} messages
         </>
       ),
     },
@@ -64,12 +67,17 @@ function SendingRules({ business }: { business: Business }) {
 
   return (
     <section aria-labelledby="sending-rules" className="space-y-3">
-      <h2 id="sending-rules" className="text-sm font-medium text-muted-foreground">
-        Sending rules
-      </h2>
-      <Stagger className="grid gap-4 sm:grid-cols-3" gap={0.06}>
+      <div className="flex items-center justify-between">
+        <h2 id="sending-rules" className="text-sm font-medium text-muted-foreground">
+          Sending rules
+        </h2>
+        <Button asChild variant="link" size="sm" className="px-0">
+          <Link href="/settings">Edit</Link>
+        </Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
         {rules.map(({ icon: Icon, label, value }) => (
-          <StaggerItem key={label}>
+          <div key={label}>
             <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
               <Card size="sm" className="transition-shadow duration-200 hover:shadow-md">
                 <CardHeader>
@@ -81,9 +89,9 @@ function SendingRules({ business }: { business: Business }) {
                 </CardHeader>
               </Card>
             </motion.div>
-          </StaggerItem>
+          </div>
         ))}
-      </Stagger>
+      </div>
     </section>
   );
 }

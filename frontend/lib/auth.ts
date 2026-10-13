@@ -43,7 +43,7 @@ export const queryKeys = {
 // Mirrors the server rules (AuthDtos.java); the server stays the source of truth.
 const email = z.string().trim().pipe(z.email("Enter a valid email address"));
 
-const businessName = z
+export const businessNameRule = z
   .string()
   .trim()
   .min(1, "Enter your business name")
@@ -55,7 +55,7 @@ export const loginSchema = z.object({
 });
 
 export const signupSchema = z.object({
-  businessName,
+  businessName: businessNameRule,
   email,
   password: z
     .string()
@@ -65,7 +65,7 @@ export const signupSchema = z.object({
 
 export const emailSchema = z.object({ email });
 
-export const businessNameSchema = z.object({ businessName });
+export const businessNameSchema = z.object({ businessName: businessNameRule });
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;

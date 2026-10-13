@@ -12,7 +12,6 @@ import com.jayway.jsonpath.JsonPath;
 import com.paynudge.IntegrationTest;
 import com.paynudge.security.TokenService;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -30,9 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AuthApiTest extends IntegrationTest {
 
 	private static final String PASSWORD = "correct-horse-battery";
-
-	@Autowired
-	private JsonMapper json;
 
 	@Autowired
 	private TokenService tokens;
