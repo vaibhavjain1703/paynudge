@@ -17,6 +17,8 @@ public final class ErrorCodes {
 
 	public static final String UNSUPPORTED_MEDIA_TYPE = "UNSUPPORTED_MEDIA_TYPE";
 
+	public static final String FILE_TOO_LARGE = "FILE_TOO_LARGE";
+
 	public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 
 	private ErrorCodes() {

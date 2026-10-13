@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** Turns every exception raised by a controller into the shared {@link ApiError} shape. */
@@ -63,6 +66,17 @@ class GlobalExceptionHandler {
 	@ExceptionHandler({ MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class })
 	ResponseEntity<ApiError> handleBadParameter(Exception ex) {
 		return error(HttpStatus.BAD_REQUEST, ErrorCodes.MALFORMED_REQUEST, ex.getMessage());
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ResponseEntity<ApiError> handleTooLarge(MaxUploadSizeExceededException ex) {
+		return error(HttpStatus.CONTENT_TOO_LARGE, ErrorCodes.FILE_TOO_LARGE,
+				"This file is larger than 2 MB. Split it into smaller files.");
+	}
+
+	@ExceptionHandler({ MissingServletRequestPartException.class, MultipartException.class })
+	ResponseEntity<ApiError> handleMissingFile(Exception ex) {
+		return error(HttpStatus.BAD_REQUEST, ErrorCodes.MALFORMED_REQUEST, "Choose a CSV file to upload");
 	}
 
 	@ExceptionHandler(NoResourceFoundException.class)

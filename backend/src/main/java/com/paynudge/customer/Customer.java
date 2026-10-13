@@ -63,7 +63,7 @@ public class Customer {
 	}
 
 	/** 32 random bytes, URL-safe: unguessable, so a link only works for the customer it was sent to. */
-	private static String newUnsubscribeToken() {
+	static String newUnsubscribeToken() {
 		byte[] bytes = new byte[32];
 		RANDOM.nextBytes(bytes);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);

@@ -20,6 +20,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
 	List<Customer> findByBusinessIdAndEmailIn(long businessId, Collection<String> emails);
 
+	List<Customer> findByBusinessIdAndPhoneIn(long businessId, Collection<String> phones);
+
 	/** {@code pattern} is a lower-case LIKE pattern with {@code \} as the escape character. */
 	@Query("""
 			SELECT c FROM Customer c

@@ -90,6 +90,14 @@ public record CustomerFields(String name, String email, String phone) {
 		return (national != null && INDIAN_MOBILE.matcher(national).matches()) ? "+91" + national : null;
 	}
 
+	/**
+	 * Identifies the customer within a business: the email when there is one, otherwise the phone. Two rows with the
+	 * same key are the same customer.
+	 */
+	public String key() {
+		return (this.email != null) ? "email:" + this.email : "phone:" + this.phone;
+	}
+
 	/** Either cleaned fields (and no errors) or the errors (and no fields). */
 	public record Parsed(CustomerFields fields, Map<String, String> errors) {
 
