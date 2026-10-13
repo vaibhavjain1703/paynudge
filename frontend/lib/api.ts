@@ -27,7 +27,9 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const { body, signal, auth = true } = options;
   const token = auth ? getToken() : null;
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  // A FormData body (file uploads) sets its own multipart Content-Type with the boundary.
+  const isForm = body instanceof FormData;
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
@@ -35,7 +37,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     response = await fetch(`${API_URL}${path}`, {
       method: options.method ?? (body === undefined ? "GET" : "POST"),
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       signal,
     });
   } catch (error) {

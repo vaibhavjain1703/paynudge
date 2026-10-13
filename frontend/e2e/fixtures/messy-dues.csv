@@ -1,0 +1,13 @@
+Customer Name,E-mail,Mobile No.,Amount (₹),Due Date,Notes
+Aarav Shah,aarav.shah@example.com,98765 43210,"₹1,500",05/11/2026,Class 8
+  Diya   Rao ,DIYA@Example.com,,1500.50,2026-11-05,
+Kabir Mehta,,+91 91234 56789,Rs. 2000/-,5 Nov 2026,
+
+Meera Iyer,meera@example,99887 76655,1500,05/11/2026,bad email
+Rohan Gupta,rohan@example.com,12345,1500,05/11/2026,bad phone
+Sana Khan,sana@example.com,,abc,05/11/2026,bad amount
+Vikram Singh,vikram@example.com,,0,05/11/2026,zero amount
+Ananya Bose,ananya@example.com,,1500,31/02/2026,impossible date
+,nameless@example.com,,1500,05/11/2026,missing name
+Aarav Shah (sibling),AARAV.SHAH@example.com,,1500,05/12/2026,same parent email
+Ishaan Nair,,,1500,05/11/2026,no contact

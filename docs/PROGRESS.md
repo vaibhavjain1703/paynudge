@@ -32,3 +32,28 @@ Done when: sign up and log in work, CI is green.
   Render's free plan blocks outbound SMTP (since Sept 2025), so real mail goes through Brevo's HTTPS API
   (`MAIL_PROVIDER=brevo`, free 300/day). A Gmail sender cannot be DKIM-authenticated by Brevo, so it rewrites the
   sender domain and early mails may land in spam; a custom domain fixes that later. e2e always forces Mailpit.
+- Google sign-in runs in Testing mode (only listed test users) until deploy: publishing needs a home page and a privacy
+  policy on the live domain. Add the Vercel URL to the client's JavaScript origins then.
+
+## Day 2: business and customer CRUD, CSV import with validation and preview
+
+Done when: a messy CSV imports with clear row errors.
+
+- [x] Business settings: `GET`/`PUT /api/business` (name, sender name, timezone, quiet hours that may cross midnight,
+  daily cap 1 to 500) and a Settings page; tab bar in the app shell
+- [x] Customers: `GET` (search, paging), `POST`, `PUT`/`DELETE /api/customers/{id}`; one rule set (`CustomerFields`)
+  for names, emails and phones (`+91` for bare 10-digit mobiles), one email per customer per business, delete
+  cascades to dues; Customers page with add/edit dialog and delete confirmation
+- [x] CSV import: `POST /api/import/preview` (match columns, check every row, save nothing) and `/commit` (same checks
+  on the server, import valid rows, re-import creates no duplicates); Import page with drag and drop, column picker,
+  row errors in the cell that is wrong, "only problems" filter and a downloadable sample file
+- [x] Isolation tests on every new endpoint; Playwright covers settings, customers and import
+
+### Notes
+
+- Import creates customers only. Amount and due date are checked (exact paise, day-first dates) but dues need a
+  reminder policy and `policy_snapshot`, so the same commit creates dues on Day 3.
+- Jakarta Mail pins virtual-thread carriers on JDK 21 (`jdk.tracePinnedThreads` showed `SMTPTransport`), which
+  stalled the API under parallel sign-in codes. SMTP sends now run on a small platform-thread pool.
+- Messy-file handling lives in `CsvReader` (byte order mark, Windows-1252, `;`/tab separators, `sep=` line, Excel
+  workbook detection, 5,000-row and 2 MB limits); `backend/src/test/resources/csv/messy-dues.csv` is the reference.
