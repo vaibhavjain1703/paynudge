@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 
 import { CustomerDialog } from "@/components/customers/customer-dialog";
 import { DeleteCustomerDialog } from "@/components/customers/delete-customer-dialog";
-import { Stagger, StaggerItem } from "@/components/motion/stagger";
 import { EmptyState, ErrorState } from "@/components/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,8 +33,8 @@ export function CustomersView() {
   const showEmptyBook = data && data.totalItems === 0 && !query;
 
   return (
-    <Stagger className="space-y-6" gap={0.08}>
-      <StaggerItem className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
           <p className="text-sm text-muted-foreground">Everyone who owes you money, and how to reach them.</p>
@@ -52,10 +51,10 @@ export function CustomersView() {
             Add customer
           </Button>
         </div>
-      </StaggerItem>
+      </div>
 
       {!showEmptyBook && (
-        <StaggerItem>
+        <div>
           <div className="relative max-w-sm">
             <Search
               className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -70,10 +69,10 @@ export function CustomersView() {
               className="pl-8"
             />
           </div>
-        </StaggerItem>
+        </div>
       )}
 
-      <StaggerItem>
+      <div>
         {customers.isPending ? (
           <TableSkeleton />
         ) : customers.isError ? (
@@ -102,10 +101,10 @@ export function CustomersView() {
             onDelete={setDeleting}
           />
         )}
-      </StaggerItem>
+      </div>
 
       {data && data.totalPages > 1 && (
-        <StaggerItem className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
           <p className="tabular-nums">
             {data.page * PAGE_SIZE + 1}–{data.page * PAGE_SIZE + data.items.length} of {data.totalItems}
           </p>
@@ -122,7 +121,7 @@ export function CustomersView() {
               Next
             </Button>
           </div>
-        </StaggerItem>
+        </div>
       )}
 
       <CustomerDialog
@@ -131,7 +130,7 @@ export function CustomersView() {
         onOpenChange={(open) => !open && setEditing(null)}
       />
       <DeleteCustomerDialog customer={deleting} onOpenChange={(open) => !open && setDeleting(null)} />
-    </Stagger>
+    </div>
   );
 }
 

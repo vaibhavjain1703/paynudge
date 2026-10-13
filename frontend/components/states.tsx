@@ -69,7 +69,7 @@ export function EmptyState({
       <motion.div
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", bounce: 0.5, duration: 0.4, delay: 0.25 }}
+        transition={{ type: "spring", bounce: 0.4, duration: 0.3 }}
         className="rounded-full bg-accent p-3 text-accent-foreground"
       >
         <Icon className="size-5" aria-hidden="true" />

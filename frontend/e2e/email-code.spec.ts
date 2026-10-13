@@ -11,7 +11,8 @@ async function requestCode(page: Page, email: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Continue with email" }).click();
-  await expect(page.getByText("We emailed a 6-digit code to")).toBeVisible();
+  // Sending goes through Docker to Mailpit, which can take several seconds when the whole suite runs at once.
+  await expect(page.getByText("We emailed a 6-digit code to")).toBeVisible({ timeout: 20_000 });
 }
 
 async function enterCode(page: Page, code: string) {

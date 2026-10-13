@@ -5,8 +5,6 @@ import { motion } from "motion/react";
 import Link from "next/link";
 
 import { PageSkeleton } from "@/components/app/app-shell";
-import { AnimatedNumber } from "@/components/motion/animated-number";
-import { Stagger, StaggerItem } from "@/components/motion/stagger";
 import { EmptyState, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,17 +20,17 @@ export function DashboardView() {
 
   const { business } = me.data;
   return (
-    <Stagger className="space-y-8" gap={0.08}>
-      <StaggerItem className="space-y-1">
+    <div className="space-y-8">
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{business.name}</h1>
         <p className="text-sm text-muted-foreground">Signed in as {me.data.email}</p>
-      </StaggerItem>
+      </div>
 
-      <StaggerItem>
+      <div>
         <SendingRules business={business} />
-      </StaggerItem>
+      </div>
 
-      <StaggerItem>
+      <div>
         <EmptyState
           icon={FileSpreadsheet}
           title="No dues yet"
@@ -43,8 +41,8 @@ export function DashboardView() {
             </Button>
           }
         />
-      </StaggerItem>
-    </Stagger>
+      </div>
+    </div>
   );
 }
 
@@ -61,7 +59,7 @@ function SendingRules({ business }: { business: Business }) {
       label: "Daily send cap",
       value: (
         <>
-          <AnimatedNumber value={business.dailySendCap} /> messages
+          {business.dailySendCap} messages
         </>
       ),
     },
@@ -77,9 +75,9 @@ function SendingRules({ business }: { business: Business }) {
           <Link href="/settings">Edit</Link>
         </Button>
       </div>
-      <Stagger className="grid gap-4 sm:grid-cols-3" gap={0.06}>
+      <div className="grid gap-4 sm:grid-cols-3">
         {rules.map(({ icon: Icon, label, value }) => (
-          <StaggerItem key={label}>
+          <div key={label}>
             <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
               <Card size="sm" className="transition-shadow duration-200 hover:shadow-md">
                 <CardHeader>
@@ -91,9 +89,9 @@ function SendingRules({ business }: { business: Business }) {
                 </CardHeader>
               </Card>
             </motion.div>
-          </StaggerItem>
+          </div>
         ))}
-      </Stagger>
+      </div>
     </section>
   );
 }

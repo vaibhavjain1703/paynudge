@@ -19,7 +19,7 @@ import {
   useCommitImport,
   usePreviewImport,
 } from "@/lib/imports";
-import { easeOut, fadeUp, useSafeTransition } from "@/lib/motion";
+import { easeOut, useSafeTransition } from "@/lib/motion";
 
 type Stage =
   | { step: "pick" }
@@ -31,7 +31,7 @@ export function ImportView() {
   const [error, setError] = useState<string>();
   const preview = usePreviewImport();
   const commit = useCommitImport();
-  const transition = useSafeTransition({ duration: 0.25, ease: easeOut });
+  const transition = useSafeTransition({ duration: 0.15, ease: easeOut });
 
   const check = async (file: File, mapping?: ColumnMapping) => {
     setError(undefined);
@@ -58,12 +58,12 @@ export function ImportView() {
 
   return (
     <div className="space-y-6">
-      <motion.div variants={fadeUp} initial="hidden" animate="show" className="space-y-1">
+      <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Import from a spreadsheet</h1>
         <p className="text-sm text-muted-foreground">
           Check every row before anything is saved. Importing the same file twice never creates duplicates.
         </p>
-      </motion.div>
+      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         {stage.step === "pick" && (

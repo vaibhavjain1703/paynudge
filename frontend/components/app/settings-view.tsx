@@ -8,7 +8,6 @@ import { useForm } from "react-hook-form";
 
 import { PageSkeleton } from "@/components/app/app-shell";
 import { applyServerError, FormAlert, SelectField, TextField, useShake } from "@/components/forms";
-import { Stagger, StaggerItem } from "@/components/motion/stagger";
 import { ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,13 +64,13 @@ function SettingsForm({ business, email }: { business: Business; email: string }
 
   return (
     <form ref={scope} onSubmit={onSubmit} noValidate>
-      <Stagger className="space-y-6" gap={0.08}>
-        <StaggerItem className="space-y-1">
+      <div className="space-y-6">
+        <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
           <p className="text-sm text-muted-foreground">How your business appears in reminders, and when they may go out.</p>
-        </StaggerItem>
+        </div>
 
-        <StaggerItem>
+        <div>
           <Card>
             <CardHeader>
               <CardTitle>Business profile</CardTitle>
@@ -89,9 +88,9 @@ function SettingsForm({ business, email }: { business: Business; email: string }
               </FieldGroup>
             </CardContent>
           </Card>
-        </StaggerItem>
+        </div>
 
-        <StaggerItem>
+        <div>
           <Card>
             <CardHeader>
               <CardTitle>Sending rules</CardTitle>
@@ -125,9 +124,9 @@ function SettingsForm({ business, email }: { business: Business; email: string }
               </FieldGroup>
             </CardContent>
           </Card>
-        </StaggerItem>
+        </div>
 
-        <StaggerItem className="space-y-4">
+        <div className="space-y-4">
           <FormAlert message={form.formState.errors.root?.server?.message} />
           <div className="flex items-center justify-end gap-3">
             <AnimatePresence>
@@ -159,20 +158,46 @@ function SettingsForm({ business, email }: { business: Business; email: string }
               Save changes
             </Button>
           </div>
-        </StaggerItem>
-      </Stagger>
+        </div>
+      </div>
     </form>
   );
 }
 
-/** Every IANA timezone the browser knows, labelled with its current offset, e.g. "Asia/Kolkata (GMT+5:30)". */
+/**
+ * Labels for every IANA timezone the browser knows, e.g. "Asia/Kolkata (GMT+5:30)". Building ~400 formatters blocks
+ * the page for ~100 ms, so it happens once per session, in idle time after Settings first paints.
+ */
+let timezoneLabels: Map<string, string> | null = null;
+
+function buildTimezoneLabels() {
+  const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+  const now = new Date();
+  return new Map(zones.map((zone) => [zone, `${zone.replaceAll("_", " ")} (${offsetOf(zone, now)})`]));
+}
+
 function useTimezoneOptions(current: string) {
+  const [labels, setLabels] = useState(timezoneLabels);
+
+  useEffect(() => {
+    if (labels) return;
+    const build = () => {
+      timezoneLabels ??= buildTimezoneLabels();
+      setLabels(timezoneLabels);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(build, { timeout: 500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(build, 50);
+    return () => window.clearTimeout(id);
+  }, [labels]);
+
   return useMemo(() => {
-    const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+    const zones = labels ? [...labels.keys()] : [];
     const all = zones.includes(current) ? zones : [current, ...zones];
-    const now = new Date();
-    return all.map((zone) => ({ value: zone, label: `${zone.replaceAll("_", " ")} (${offsetOf(zone, now)})` }));
-  }, [current]);
+    return all.map((zone) => ({ value: zone, label: labels?.get(zone) ?? zone.replaceAll("_", " ") }));
+  }, [labels, current]);
 }
 
 function offsetOf(zone: string, at: Date) {
