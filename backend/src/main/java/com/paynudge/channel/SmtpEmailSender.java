@@ -44,10 +44,10 @@ class SmtpEmailSender implements EmailSender, DisposableBean {
 	}
 
 	@Override
-	public void send(EmailMessage message) {
-		Future<?> sending = this.executor.submit(() -> deliver(message));
+	public String send(EmailMessage message) {
+		Future<String> sending = this.executor.submit(() -> deliver(message));
 		try {
-			sending.get(SEND_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+			return sending.get(SEND_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
 		}
 		catch (ExecutionException ex) {
 			if (ex.getCause() instanceof EmailDeliveryException failure) {
@@ -66,7 +66,7 @@ class SmtpEmailSender implements EmailSender, DisposableBean {
 		}
 	}
 
-	private void deliver(EmailMessage message) {
+	private String deliver(EmailMessage message) {
 		try {
 			MimeMessage mime = this.mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(mime, message.html() != null,
@@ -81,6 +81,7 @@ class SmtpEmailSender implements EmailSender, DisposableBean {
 				helper.setText(message.text());
 			}
 			this.mailSender.send(mime);
+			return mime.getMessageID();
 		}
 		catch (MailException | MessagingException ex) {
 			throw new EmailDeliveryException("SMTP delivery failed", ex);

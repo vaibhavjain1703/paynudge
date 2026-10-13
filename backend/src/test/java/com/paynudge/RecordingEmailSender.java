@@ -16,11 +16,12 @@ public class RecordingEmailSender implements EmailSender {
 	private final AtomicBoolean failNext = new AtomicBoolean();
 
 	@Override
-	public void send(EmailMessage message) {
+	public String send(EmailMessage message) {
 		if (this.failNext.getAndSet(false)) {
 			throw new EmailDeliveryException("simulated provider outage", null);
 		}
 		this.sent.add(message);
+		return "recorded-" + this.sent.size();
 	}
 
 	public List<EmailMessage> sent() {

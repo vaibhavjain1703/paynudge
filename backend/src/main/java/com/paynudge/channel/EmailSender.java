@@ -6,7 +6,10 @@ package com.paynudge.channel;
  */
 public interface EmailSender {
 
-	/** @throws EmailDeliveryException when the provider rejects or cannot be reached */
-	void send(EmailMessage message);
+	/**
+	 * @return the provider's id for the message (for tracing), or null if it gives none
+	 * @throws EmailDeliveryException when the provider rejects or cannot be reached
+	 */
+	String send(EmailMessage message);
 
 }
