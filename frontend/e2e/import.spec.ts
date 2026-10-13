@@ -95,3 +95,51 @@ test("an Excel workbook gets told how to save it as CSV", async ({ page, request
   await expect(page.getByRole("alert").filter({ hasText: "This looks like an Excel workbook" })).toBeVisible();
   await expect(page.getByLabel("Choose a CSV file")).toBeAttached();
 });
+
+test("a file being checked waits while the owner looks at other pages", async ({ page, request }) => {
+  await signInAsNewOwner(page, request);
+  const menu = page.getByRole("navigation", { name: "Main" });
+  await page.goto("/import");
+  await page.getByLabel("Choose a CSV file").setInputFiles(MESSY_CSV);
+  await expect(page.getByRole("button", { name: "Import 4 dues" })).toBeEnabled();
+  await page.getByLabel("Reminder policy").selectOption({ label: "Gentle" });
+
+  // Off to read the policies and back through the menu: the file, its row checks and the chosen policy are still there.
+  await page.getByRole("link", { name: "See the policies" }).click();
+  await expect(page).toHaveURL(/\/policies$/);
+  await menu.getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page.getByText("messy-dues.csv")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Sana Khan" })).toContainText(
+    "Use a number like 1500 or 1,500.50",
+  );
+  await expect(page.getByLabel("Reminder policy").locator("option:checked")).toHaveText("Gentle");
+
+  await page.getByRole("button", { name: "Import 4 dues" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Imported 4 dues" })).toBeVisible();
+
+  // An imported file is let go: the next visit starts with an empty picker.
+  await menu.getByRole("link", { name: "Dues", exact: true }).click();
+  await expect(page).toHaveURL(/\/dues$/);
+  await menu.getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page.getByText("Drop a CSV file here, or click to choose one")).toBeVisible();
+});
+
+test("logging out forgets a file that was being checked", async ({ page, request }) => {
+  const { email } = await signInAsNewOwner(page, request);
+  await page.goto("/import");
+  await page.getByLabel("Choose a CSV file").setInputFiles(MESSY_CSV);
+  await expect(page.getByText("messy-dues.csv")).toBeVisible();
+
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole("button", { name: "Use a password instead" }).click();
+  await expect(page.getByLabel("Password")).toBeVisible();
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page.getByText("Drop a CSV file here, or click to choose one")).toBeVisible();
+  await expect(page.getByText("messy-dues.csv")).toBeHidden();
+});
