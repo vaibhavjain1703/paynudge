@@ -157,6 +157,15 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Tests run with the JVM on India time wherever they run (CI machines are on UTC), so a value that
+					     shifts with the JVM's own zone fails a test instead of moving a business's quiet hours. -->
+					<argLine>-Duser.timezone=Asia/Kolkata</argLine>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<executions>
 					<execution>

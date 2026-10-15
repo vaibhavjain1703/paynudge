@@ -66,7 +66,22 @@ class BrevoEmailSenderTest {
 
 		assertThatThrownBy(() -> this.sender.send(MESSAGE)).isInstanceOf(EmailDeliveryException.class)
 			.hasMessageContaining("401")
-			.hasMessageContaining("unrecognised IP address");
+			.hasMessageContaining("unrecognised IP address")
+			.extracting("permanent")
+			.as("a key or IP problem can be fixed, so it is worth trying again")
+			.isEqualTo(false);
+	}
+
+	@Test
+	void anAddressBrevoRefusesFailsForGood() {
+		this.brevo.expect(requestTo("https://brevo.test/v3/smtp/email"))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"code\":\"invalid_parameter\",\"message\":\"email is not valid in to\"}"));
+
+		assertThatThrownBy(() -> this.sender.send(MESSAGE)).isInstanceOf(EmailDeliveryException.class)
+			.hasMessageContaining("email is not valid")
+			.extracting("permanent")
+			.isEqualTo(true);
 	}
 
 	@Test
@@ -75,7 +90,9 @@ class BrevoEmailSenderTest {
 			.andRespond(withException(new IOException("connect timed out")));
 
 		assertThatThrownBy(() -> this.sender.send(MESSAGE)).isInstanceOf(EmailDeliveryException.class)
-			.hasMessage("Brevo could not be reached");
+			.hasMessage("Brevo could not be reached")
+			.extracting("permanent")
+			.isEqualTo(false);
 	}
 
 	@Test

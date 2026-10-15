@@ -1,6 +1,11 @@
 package com.paynudge.channel;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
+
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -12,9 +17,13 @@ class EmailChannel implements Channel, DisposableBean {
 
 	private final SmtpEmailSender sender;
 
+	/** The right-hand side of our Message-IDs: the sender's domain. */
+	private final String domain;
+
 	EmailChannel(ReminderMailProperties properties) {
 		this.sender = new SmtpEmailSender(mailSender(properties),
 				new MailSettings(MailSettings.Provider.SMTP, properties.from()));
+		this.domain = domainOf(properties.from());
 	}
 
 	@Override
@@ -22,13 +31,34 @@ class EmailChannel implements Channel, DisposableBean {
 		return "EMAIL";
 	}
 
+	/**
+	 * The Message-ID comes from the message's reference, so if a worker dies after the server took the email and the
+	 * step is sent again, both copies carry the same id and mail services (Gmail among them) keep only one.
+	 * List-Unsubscribe with List-Unsubscribe-Post lets the mail client's own unsubscribe button work in one click.
+	 */
 	@Override
 	public String send(OutboundMessage message) {
+		Map<String, String> headers = new LinkedHashMap<>();
+		headers.put("Message-ID", "<" + message.reference() + "@" + this.domain + ">");
+		if (message.oneClickUnsubscribe() != null) {
+			headers.put("List-Unsubscribe", "<" + message.oneClickUnsubscribe() + ">");
+			headers.put("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+		}
 		try {
-			return this.sender.send(new EmailMessage(message.to(), message.subject(), message.text(), null));
+			return this.sender.send(new EmailMessage(message.to(), message.subject(), message.text(), null, headers));
 		}
 		catch (EmailDeliveryException ex) {
-			throw new ChannelException(ex.getMessage(), ex);
+			throw new ChannelException(ex.getMessage(), ex, ex.permanent());
+		}
+	}
+
+	private static String domainOf(String from) {
+		try {
+			String address = new InternetAddress(from, true).getAddress();
+			return address.substring(address.indexOf('@') + 1);
+		}
+		catch (AddressException ex) {
+			throw new IllegalStateException("REMINDER_MAIL_FROM is not a valid address: " + from, ex);
 		}
 	}
 

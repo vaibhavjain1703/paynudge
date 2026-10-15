@@ -1,6 +1,7 @@
 package com.paynudge.channel;
 
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.mail.internet.AddressException;
@@ -34,7 +35,8 @@ class BrevoEmailSender implements EmailSender {
 	@Override
 	public String send(EmailMessage message) {
 		SendRequest request = new SendRequest(this.sender, List.of(new Contact(message.to(), null)),
-				message.subject(), message.text(), message.html());
+				message.subject(), message.text(), message.html(),
+				message.headers().isEmpty() ? null : message.headers());
 		try {
 			Sent sent = this.client.post()
 				.uri("/v3/smtp/email")
@@ -46,11 +48,19 @@ class BrevoEmailSender implements EmailSender {
 		}
 		catch (RestClientResponseException ex) {
 			throw new EmailDeliveryException("Brevo rejected the email: " + ex.getStatusCode().value() + " "
-					+ abbreviate(ex.getResponseBodyAsString()), ex);
+					+ abbreviate(ex.getResponseBodyAsString()), ex, refusesTheEmail(ex.getStatusCode().value()));
 		}
 		catch (RestClientException ex) {
 			throw new EmailDeliveryException("Brevo could not be reached", ex);
 		}
+	}
+
+	/**
+	 * 400 (an address Brevo will not take, say) fails the same way every time. A bad API key (401, 403), throttling
+	 * (429) and Brevo's own errors (5xx) can clear up, so those are worth another try.
+	 */
+	private static boolean refusesTheEmail(int status) {
+		return status >= 400 && status < 500 && status != 401 && status != 403 && status != 429;
 	}
 
 	private static String abbreviate(String body) {
@@ -62,7 +72,8 @@ class BrevoEmailSender implements EmailSender {
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	record SendRequest(Contact sender, List<Contact> to, String subject, String textContent, String htmlContent) {
+	record SendRequest(Contact sender, List<Contact> to, String subject, String textContent, String htmlContent,
+			Map<String, String> headers) {
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)

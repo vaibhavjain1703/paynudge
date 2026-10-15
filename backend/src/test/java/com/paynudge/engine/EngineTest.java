@@ -2,6 +2,7 @@ package com.paynudge.engine;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -11,35 +12,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import com.jayway.jsonpath.JsonPath;
-import com.paynudge.IntegrationTest;
 import com.paynudge.channel.Channel.OutboundMessage;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * The reminder engine end to end against Postgres, with the clock moved by hand. The due in most tests follows
- * "Friendly then firm" for ₹1,500 due 20 January 2026: emails on 18, 20 and 23 January and 30 January (final), the
- * owner told on 27 January, all at 10:00 Kolkata time (04:30 UTC). The clock starts on 5 January.
- */
-class EngineTest extends IntegrationTest {
-
-	private static final Instant FIRST_REMINDER = Instant.parse("2026-01-18T04:30:00Z");
-
-	@Autowired
-	private StepWorker worker;
-
-	private String token;
-
-	@BeforeEach
-	void signUp() {
-		this.token = signUpOwner("asha@example.com", "Bright Tuition");
-	}
+/** The reminder engine end to end against Postgres, with the clock moved by hand. */
+class EngineTest extends EngineTestSupport {
 
 	@Test
 	void aDueSchedulesAndItsFirstReminderSends() {
@@ -52,18 +34,25 @@ class EngineTest extends IntegrationTest {
 
 		assertThat(this.channel.sent()).hasSize(1);
 		OutboundMessage reminder = this.channel.sent().get(0);
+		String unsubscribeToken = unsubscribeToken(due);
 		assertThat(reminder.to()).isEqualTo("aarav@example.com");
 		assertThat(reminder.subject()).isEqualTo("A quick reminder from Bright Tuition");
 		assertThat(reminder.text()).startsWith("Hi Aarav Shah,")
 			.contains("₹1,500 is due on 20 Jan 2026")
 			.contains("http://localhost:3000/pay/" + payToken(due))
-			.endsWith("Stop these reminders: http://localhost:3000/unsubscribe/" + unsubscribeToken(due));
+			.endsWith("Stop these reminders: http://localhost:3000/unsubscribe/" + unsubscribeToken);
+		assertThat(reminder.reference()).isEqualTo("due-" + due + ".remind_1");
+		assertThat(reminder.oneClickUnsubscribe())
+			.isEqualTo("http://localhost:8080/api/public/unsubscribe/" + unsubscribeToken);
 
 		assertThat(stepStatuses(due)).containsExactly("remind_1 DONE 1", "remind_2 PENDING 0", "remind_3 PENDING 0",
 				"notify_owner PENDING 0", "final PENDING 0");
 		assertThat(dueStatus(due)).isEqualTo("ACTIVE");
 		assertThat(this.jdbc.queryForObject("SELECT provider_id FROM messages WHERE due_id = ?", String.class, due))
 			.isEqualTo("fake-1");
+		assertThat(this.jdbc.queryForObject("SELECT sent_at FROM messages WHERE due_id = ?",
+				OffsetDateTime.class, due)
+			.toInstant()).as("the engine's clock, not the database's").isEqualTo(FIRST_REMINDER);
 		// Thirteen days on, the sign-up token has long expired: sign in again to look at the due.
 		MvcTestResult login = this.mvc.post()
 			.uri("/api/auth/login")
@@ -88,9 +77,7 @@ class EngineTest extends IntegrationTest {
 
 		assertThat(this.channel.sent()).isEmpty();
 		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 CANCELLED 1");
-		assertThat(this.jdbc.queryForObject("SELECT error FROM due_steps WHERE due_id = ? AND step_key = 'remind_1'",
-				String.class, due))
-			.isEqualTo("Due is paid");
+		assertThat(stepColumn(due, "remind_1", "error")).isEqualTo("Due is paid");
 	}
 
 	@Test
@@ -104,6 +91,7 @@ class EngineTest extends IntegrationTest {
 
 		assertThat(this.channel.sent()).isEmpty();
 		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 CANCELLED 1");
+		assertThat(stepColumn(due, "remind_1", "error")).isEqualTo("Customer unsubscribed");
 	}
 
 	@Test
@@ -116,6 +104,9 @@ class EngineTest extends IntegrationTest {
 
 		assertThat(this.channel.sent()).isEmpty();
 		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 SKIPPED 1");
+		assertThat(this.jdbc.queryForObject("SELECT sum(sent) FROM daily_sends", Long.class))
+			.as("a skipped email gives its slot back")
+			.isZero();
 	}
 
 	@Test
@@ -147,21 +138,22 @@ class EngineTest extends IntegrationTest {
 
 		assertThat(this.channel.sent()).isEmpty();
 		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 PENDING 1");
-		assertThat(this.jdbc.queryForObject("SELECT count(*) FROM messages", Long.class)).as("rolled back").isZero();
-		assertThat(this.jdbc.queryForObject("SELECT error FROM due_steps WHERE due_id = ? AND step_key = 'remind_1'",
-				String.class, due))
-			.isEqualTo("simulated provider outage");
+		assertThat(messageCount()).as("rolled back").isZero();
+		assertThat(stepColumn(due, "remind_1", "error")).isEqualTo("simulated provider outage");
+		// 30 seconds, plus up to a tenth more so a batch of failures does not retry in step.
+		assertThat(Duration.between(FIRST_REMINDER, runAt(due, "remind_1"))).isBetween(Duration.ofSeconds(30),
+				Duration.ofSeconds(33));
 
 		this.clock.advance(Duration.ofSeconds(29));
 		assertThat(this.worker.drain()).isZero();
-		this.clock.advance(Duration.ofSeconds(1));
+		this.clock.advance(Duration.ofSeconds(4));
 		assertThat(this.worker.drain()).isEqualTo(1);
 		assertThat(this.channel.sent()).hasSize(1);
 		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 DONE 2");
 	}
 
 	@Test
-	void aStepThatKeepsFailingStopsAfterFiveTries() {
+	void aStepThatKeepsFailingStopsAfterFiveTriesAndTheDueNeedsTheOwner() {
 		long due = createDue(customer("Aarav Shah", "aarav@example.com"), "2026-01-20");
 		this.channel.failNext(5);
 
@@ -173,7 +165,23 @@ class EngineTest extends IntegrationTest {
 
 		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 FAILED 5");
 		assertThat(this.channel.sent()).isEmpty();
-		assertThat(dueStatus(due)).isEqualTo("SCHEDULED");
+		assertThat(dueStatus(due)).isEqualTo("ESCALATED");
+	}
+
+	@Test
+	void anAddressTheProviderRefusesFailsAtOnceWithoutRetries() {
+		long due = createDue(customer("Aarav Shah", "aarav@example.com"), "2026-01-20");
+		this.channel.refuseNext(1);
+
+		this.clock.set(FIRST_REMINDER);
+		this.worker.drain();
+
+		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 FAILED 1");
+		assertThat(stepColumn(due, "remind_1", "error"))
+			.isEqualTo("The mail server refused the address aarav@example.com");
+		assertThat(dueStatus(due)).isEqualTo("ESCALATED");
+		this.clock.advance(Duration.ofHours(1));
+		assertThat(this.worker.drain()).as("no retry").isZero();
 	}
 
 	@Test
@@ -212,31 +220,12 @@ class EngineTest extends IntegrationTest {
 		assertThat(ran).isEqualTo(dues);
 		assertThat(this.channel.sent()).hasSize(dues);
 		assertThat(this.channel.sent()).extracting(OutboundMessage::to).doesNotHaveDuplicates();
-		assertThat(this.jdbc.queryForObject("SELECT count(*) FROM messages", Long.class)).isEqualTo(dues);
+		assertThat(messageCount()).isEqualTo(dues);
 		assertThat(this.jdbc.queryForObject(
 				"SELECT count(*) FROM due_steps WHERE step_key = 'remind_1' AND status = 'DONE' AND attempt = 1",
 				Long.class))
 			.isEqualTo(dues);
-	}
-
-	private long customer(String name, String email) {
-		return idOf(postAs(this.token, "/api/customers", Map.of("name", name, "email", email)));
-	}
-
-	private long createDue(long customerId, String dueDate) {
-		long policy = ((Number) JsonPath.read(bodyOf(getAs(this.token, "/api/policies")), "$[0].id")).longValue();
-		return idOf(postAs(this.token, "/api/dues",
-				Map.of("customerId", customerId, "amountPaise", 150000, "dueDate", dueDate, "policyId", policy)));
-	}
-
-	private List<String> stepStatuses(long due) {
-		return this.jdbc.queryForList(
-				"SELECT step_key || ' ' || status || ' ' || attempt FROM due_steps WHERE due_id = ? ORDER BY run_at, id",
-				String.class, due);
-	}
-
-	private String dueStatus(long due) {
-		return this.jdbc.queryForObject("SELECT status FROM dues WHERE id = ?", String.class, due);
+		assertThat(this.jdbc.queryForObject("SELECT sent FROM daily_sends", Integer.class)).isEqualTo(dues);
 	}
 
 	private String payToken(long due) {
@@ -247,10 +236,6 @@ class EngineTest extends IntegrationTest {
 		return this.jdbc.queryForObject(
 				"SELECT c.unsub_token FROM dues d JOIN customers c ON c.id = d.customer_id WHERE d.id = ?",
 				String.class, due);
-	}
-
-	private static long idOf(MvcTestResult result) {
-		return ((Number) JsonPath.read(bodyOf(result), "$.id")).longValue();
 	}
 
 }

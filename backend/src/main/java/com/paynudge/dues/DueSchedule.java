@@ -20,7 +20,7 @@ import com.paynudge.policy.PolicyDefinition.Step;
  */
 final class DueSchedule {
 
-	static final LocalTime SEND_TIME = LocalTime.of(10, 0);
+	static final LocalTime SEND_TIME = SendWindow.SEND_TIME;
 
 	static final Duration MIN_GAP = Duration.ofDays(1);
 
