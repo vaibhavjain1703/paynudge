@@ -45,6 +45,8 @@ export default defineConfig({
         MAIL_PROVIDER: "smtp",
         // Links in reminders (pay, unsubscribe) point at the e2e web server.
         APP_URL: E2E_WEB_URL,
+        // One-click unsubscribe links in reminder headers point at this API.
+        API_URL: E2E_API_URL,
       },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

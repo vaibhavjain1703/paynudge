@@ -1,9 +1,10 @@
 "use client";
 
-import { BellRing, FileUp, Mail, UserRound } from "lucide-react";
+import { BellOff, BellRing, CircleCheck, FileUp, Mail, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { DueActionDialog } from "@/components/dues/due-action-dialog";
 import { EmptyState, ErrorState } from "@/components/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMe } from "@/lib/auth";
 import { formatPhone } from "@/lib/customers";
-import { DUE_STATUS_LABELS, DUES_PAGE_SIZE, type DueStatus, type DueSummary, useDues } from "@/lib/dues";
+import {
+  type DueAction,
+  DUE_STATUS_LABELS,
+  DUES_PAGE_SIZE,
+  type DueStatus,
+  type DueSummary,
+  isOpen,
+  useDues,
+} from "@/lib/dues";
 import { formatDate, formatDateTime, formatPaise } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -84,20 +93,25 @@ export function DuesView() {
 }
 
 function DueTable({ dues, timeZone, loading }: { dues: DueSummary[]; timeZone: string; loading: boolean }) {
+  const [acting, setActing] = useState<{ due: DueSummary; action: DueAction } | null>(null);
   return (
     <div
       className="overflow-hidden rounded-xl border transition-opacity duration-200 data-[loading=true]:opacity-60"
       data-loading={loading}
       aria-busy={loading}
     >
+      <DueActionDialog target={acting} onOpenChange={(open) => !open && setActing(null)} />
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>Customer</TableHead>
             <TableHead className="text-right">Amount</TableHead>
-            <TableHead>Due date</TableHead>
+            <TableHead className="hidden sm:table-cell">Due date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="hidden md:table-cell">Next reminder</TableHead>
+            <TableHead className="w-20 text-right">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -109,10 +123,14 @@ function DueTable({ dues, timeZone, loading }: { dues: DueSummary[]; timeZone: s
                   {due.customer.email ?? (due.customer.phone && formatPhone(due.customer.phone))}
                 </div>
               </TableCell>
-              <TableCell className="text-right font-mono">{formatPaise(due.amountPaise)}</TableCell>
-              <TableCell className="whitespace-nowrap">{formatDate(due.dueDate)}</TableCell>
+              <TableCell className="text-right">
+                <div className="font-mono">{formatPaise(due.amountPaise)}</div>
+                {/* On a phone the date sits under the amount, leaving room for the actions. */}
+                <div className="text-xs whitespace-nowrap text-muted-foreground sm:hidden">{formatDate(due.dueDate)}</div>
+              </TableCell>
+              <TableCell className="hidden whitespace-nowrap sm:table-cell">{formatDate(due.dueDate)}</TableCell>
               <TableCell>
-                <StatusBadge status={due.status} />
+                <StatusBadge status={due.status} unsubscribed={due.customer.optedOut} />
               </TableCell>
               <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
                 {due.nextStep ? (
@@ -126,6 +144,30 @@ function DueTable({ dues, timeZone, loading }: { dues: DueSummary[]; timeZone: s
                   </span>
                 ) : (
                   "—"
+                )}
+              </TableCell>
+              <TableCell className="text-right whitespace-nowrap">
+                {isOpen(due.status) && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Mark ${due.customer.name}'s due as paid`}
+                      onClick={() => setActing({ due, action: "mark-paid" })}
+                      className="text-muted-foreground hover:text-success"
+                    >
+                      <CircleCheck aria-hidden="true" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Stop reminders for ${due.customer.name}`}
+                      onClick={() => setActing({ due, action: "cancel" })}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <BellOff aria-hidden="true" />
+                    </Button>
+                  </>
                 )}
               </TableCell>
             </TableRow>
@@ -144,7 +186,15 @@ const STATUS_STYLES: Record<DueStatus, string> = {
   CANCELLED: "text-muted-foreground",
 };
 
-function StatusBadge({ status }: { status: DueStatus }) {
+/** An open due whose customer unsubscribed gets no reminders, so it says that instead of "Reminding". */
+function StatusBadge({ status, unsubscribed }: { status: DueStatus; unsubscribed: boolean }) {
+  if (unsubscribed && isOpen(status)) {
+    return (
+      <Badge variant="outline" className="text-warning">
+        Unsubscribed
+      </Badge>
+    );
+  }
   return (
     <Badge variant={status === "CANCELLED" ? "outline" : "secondary"} className={cn(STATUS_STYLES[status])}>
       {DUE_STATUS_LABELS[status]}
