@@ -1,7 +1,9 @@
 package com.paynudge.dues;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -34,6 +36,10 @@ public class DueService {
 	/** ₹1 crore: a guard against typos, matching the CSV import. */
 	static final long MAX_AMOUNT_PAISE = 1_000_000_000L;
 
+	static final String DUE_PAID = "DUE_PAID";
+
+	static final String DUE_CANCELLED = "DUE_CANCELLED";
+
 	private final DueWriter writer;
 
 	private final DueQueries queries;
@@ -44,13 +50,16 @@ public class DueService {
 
 	private final JdbcTemplate jdbc;
 
+	private final Clock clock;
+
 	DueService(DueWriter writer, DueQueries queries, PolicyService policies, CustomerRepository customers,
-			JdbcTemplate jdbc) {
+			JdbcTemplate jdbc, Clock clock) {
 		this.writer = writer;
 		this.queries = queries;
 		this.policies = policies;
 		this.customers = customers;
 		this.jdbc = jdbc;
+		this.clock = clock;
 	}
 
 	/** One due imported from a CSV row; {@code importKey} fingerprints the row so a re-import skips it. */
@@ -127,6 +136,53 @@ public class DueService {
 
 	DueDetail detail(Caller caller, long id) {
 		return this.queries.detail(caller.businessId(), id).orElseThrow(() -> ApiException.notFound("Due not found"));
+	}
+
+	/**
+	 * Paid outside PayNudge (cash, a bank transfer). Takes the due's row lock, as a worker does before sending, so a
+	 * reminder that is going out right now finishes first and none starts afterwards. Repeating it changes nothing.
+	 */
+	@Transactional
+	DueDetail markPaid(Caller caller, long id) {
+		String status = lockStatus(caller.businessId(), id);
+		if (DueStatus.CANCELLED.equals(status)) {
+			throw ApiException.conflict(DUE_CANCELLED, "This due was cancelled, so it cannot be marked paid");
+		}
+		if (!DueStatus.PAID.equals(status)) {
+			this.jdbc.update("UPDATE dues SET status = ?, paid_at = ? WHERE id = ?", DueStatus.PAID,
+					this.clock.instant().atOffset(ZoneOffset.UTC), id);
+			stopReminders(id, "Due is paid");
+		}
+		return detail(caller, id);
+	}
+
+	/** The owner calls the due off: no more reminders. Repeating it changes nothing. */
+	@Transactional
+	DueDetail cancel(Caller caller, long id) {
+		String status = lockStatus(caller.businessId(), id);
+		if (DueStatus.PAID.equals(status)) {
+			throw ApiException.conflict(DUE_PAID, "This due is already paid");
+		}
+		if (!DueStatus.CANCELLED.equals(status)) {
+			this.jdbc.update("UPDATE dues SET status = ? WHERE id = ?", DueStatus.CANCELLED, id);
+			stopReminders(id, "Due is cancelled");
+		}
+		return detail(caller, id);
+	}
+
+	private String lockStatus(long businessId, long id) {
+		return this.jdbc
+			.queryForList("SELECT status FROM dues WHERE id = ? AND business_id = ? FOR UPDATE", String.class, id,
+					businessId)
+			.stream()
+			.findFirst()
+			.orElseThrow(() -> ApiException.notFound("Due not found"));
+	}
+
+	/** Cancels the steps still waiting. A step a worker holds right now cancels itself when it sees the new status. */
+	private void stopReminders(long dueId, String reason) {
+		this.jdbc.update("UPDATE due_steps SET status = ?, error = ?, note = NULL WHERE due_id = ? AND status = ?",
+				StepStatus.CANCELLED, reason, dueId, StepStatus.PENDING);
 	}
 
 }
