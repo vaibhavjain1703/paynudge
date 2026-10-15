@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { E2E_API_URL } from "../playwright.config";
-import { latestMessage } from "./mailpit";
+import { headersOf, latestMessage } from "./mailpit";
 import { signInAsNewOwner, uniqueEmail } from "./session";
 
 const KOLKATA = "Asia/Kolkata";
@@ -17,7 +17,7 @@ function kolkataDate(at: Date) {
   );
 }
 
-test("an imported due schedules and its first reminder reaches the customer", async ({ page, request }) => {
+test("an imported due's first reminder reaches the customer, who can stop the rest", async ({ page, request }) => {
   const { token } = await signInAsNewOwner(page, request, "Sunrise PG");
 
   // Quiet hours are moved away from the current time, so the reminder can go out whenever this test runs.
@@ -48,9 +48,35 @@ test("an imported due schedules and its first reminder reaches the customer", as
   expect(reminder.Text).toContain("Hi Rohan Gupta,");
   expect(reminder.Text).toMatch(/http:\/\/localhost:3100\/pay\/[\w-]{43}/);
   expect(reminder.Text).toMatch(/Stop these reminders: http:\/\/localhost:3100\/unsubscribe\/[\w-]{43}\s*$/);
+  // One Message-ID per step, so a resend after a crash is recognisably the same email; and the mail client's own
+  // unsubscribe button works in one click.
+  expect(reminder.MessageID).toMatch(/^due-\d+\.remind_\d+@paynudge\.local$/);
+  const headers = await headersOf(reminder);
+  expect(headers["List-Unsubscribe"]).toEqual([
+    expect.stringMatching(/^<http:\/\/localhost:8180\/api\/public\/unsubscribe\/[\w-]{43}>$/),
+  ]);
+  expect(headers["List-Unsubscribe-Post"]).toEqual(["List-Unsubscribe=One-Click"]);
 
   await page.goto("/dues");
   const row = page.getByRole("row", { name: /Rohan Gupta/ });
   await expect(row).toContainText("₹8,500");
   await expect(row).toContainText("Reminding");
+
+  // The tenant follows the link in the email. Opening it changes nothing; the button does.
+  await page.goto(reminder.Text.match(/Stop these reminders: (\S+)/)![1]);
+  await expect(page.getByText("Stop payment reminders from Sunrise PG?")).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("unsubscribe.png") });
+  await page.getByRole("button", { name: "Stop reminders" }).click();
+  await expect(page.getByRole("status")).toContainText("You're unsubscribed");
+  await expect(page.getByRole("status")).toContainText("Sunrise PG won't send you any more payment reminders");
+  await page.screenshot({ path: test.info().outputPath("unsubscribed.png") });
+
+  await page.goto("/dues");
+  await expect(row).toContainText("Unsubscribed");
+  await expect(row).toContainText("—"); // no next reminder
+});
+
+test("a broken unsubscribe link says so", async ({ page }) => {
+  await page.goto("/unsubscribe/not-a-real-link");
+  await expect(page.getByText("This link doesn't work")).toBeVisible();
 });

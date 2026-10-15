@@ -26,6 +26,7 @@ class DueQueries {
 	private static final String SUMMARY_COLUMNS = """
 			d.id, d.amount_paise, d.due_date, d.status, d.created_at,
 			c.id AS customer_id, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone,
+			c.opted_out AS customer_opted_out,
 			n.step_key AS next_key, n.action AS next_action, n.run_at AS next_run_at
 			FROM dues d
 			JOIN customers c ON c.id = d.customer_id
@@ -56,7 +57,8 @@ class DueQueries {
 		List<DueDetail> found = this.jdbc.query("""
 				SELECT d.id, d.amount_paise, d.due_date, d.status, d.policy_id, d.paid_at, d.created_at,
 				       p.name AS policy_name,
-				       c.id AS customer_id, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+				       c.id AS customer_id, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone,
+				       c.opted_out AS customer_opted_out
 				FROM dues d
 				JOIN customers c ON c.id = d.customer_id
 				LEFT JOIN policies p ON p.id = d.policy_id
@@ -69,10 +71,10 @@ class DueQueries {
 
 	private List<StepView> steps(long dueId) {
 		return this.jdbc.query("""
-				SELECT step_key, action, status, run_at, attempt, error FROM due_steps
+				SELECT step_key, action, status, run_at, attempt, error, note FROM due_steps
 				WHERE due_id = ? ORDER BY run_at, id""",
 				(rs, row) -> new StepView(rs.getString("step_key"), rs.getString("action"), rs.getString("status"),
-						instant(rs, "run_at"), rs.getInt("attempt"), rs.getString("error")),
+						instant(rs, "run_at"), rs.getInt("attempt"), rs.getString("error"), rs.getString("note")),
 				dueId);
 	}
 
@@ -94,7 +96,7 @@ class DueQueries {
 
 	private static CustomerRef customer(ResultSet rs) throws SQLException {
 		return new CustomerRef(rs.getLong("customer_id"), rs.getString("customer_name"),
-				rs.getString("customer_email"), rs.getString("customer_phone"));
+				rs.getString("customer_email"), rs.getString("customer_phone"), rs.getBoolean("customer_opted_out"));
 	}
 
 	private static Instant instant(ResultSet rs, String column) throws SQLException {

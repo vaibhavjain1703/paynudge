@@ -13,7 +13,8 @@ final class DueDtos {
 	record CreateDueRequest(Long customerId, Long amountPaise, LocalDate dueDate, Long policyId) {
 	}
 
-	record CustomerRef(long id, String name, String email, String phone) {
+	/** @param optedOut the customer used the unsubscribe link: no more reminders for any of their dues */
+	record CustomerRef(long id, String name, String email, String phone, boolean optedOut) {
 	}
 
 	/** The next step still to run, or null when nothing is left. */
@@ -24,7 +25,11 @@ final class DueDtos {
 			NextStep nextStep, Instant createdAt) {
 	}
 
-	record StepView(String key, String action, String status, Instant runAt, int attempt, String error) {
+	/**
+	 * @param error why the step failed or was cancelled
+	 * @param note why it is waiting (quiet hours, the daily limit, the gap between emails)
+	 */
+	record StepView(String key, String action, String status, Instant runAt, int attempt, String error, String note) {
 	}
 
 	record MessageView(String stepKey, String channel, String subject, Instant sentAt) {

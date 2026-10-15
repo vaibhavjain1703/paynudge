@@ -3,7 +3,8 @@ const MAILPIT = "http://localhost:8025";
 
 type Summary = { ID: string };
 
-export type Mail = { Subject: string; Text: string };
+/** `ID` is Mailpit's own; `MessageID` is the email's Message-ID header, without the angle brackets. */
+export type Mail = { ID: string; MessageID: string; Subject: string; Text: string };
 
 /** The newest message to this address, waiting up to `timeoutMs` for one that passes `accept`. */
 export async function latestMessage(
@@ -21,6 +22,18 @@ export async function latestMessage(
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`No matching email arrived for ${email}`);
+}
+
+/** How many messages Mailpit holds for this address. */
+export async function messageCount(email: string): Promise<number> {
+  const search = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
+  const { messages_count = 0 } = (await search.json()) as { messages_count?: number };
+  return messages_count;
+}
+
+/** A message's raw headers, each name mapped to its values. */
+export async function headersOf(mail: Mail): Promise<Record<string, string[]>> {
+  return (await (await fetch(`${MAILPIT}/api/v1/message/${mail.ID}/headers`)).json()) as Record<string, string[]>;
 }
 
 /** The six-digit sign-in code in the newest email to this address. */

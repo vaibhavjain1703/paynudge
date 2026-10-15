@@ -36,6 +36,8 @@ class SecurityConfig implements WebMvcConfigurer {
 						"/api/auth/email/verify", "/api/auth/google")
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/auth/providers").permitAll()
+				// Links in reminders: the customer has no account.
+				.requestMatchers("/api/public/**").permitAll()
 				.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 				.requestMatchers("/error").permitAll()
 				.anyRequest().authenticated())

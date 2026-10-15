@@ -42,6 +42,10 @@ class BusinessApiTest extends IntegrationTest {
 				 "senderName":"Asha Ma'am","dailySendCap":120}""";
 		assertThat(result).hasStatusOk().bodyJson().isLenientlyEqualTo(expected);
 		assertThat(getAs(token, "/api/business")).bodyJson().isLenientlyEqualTo(expected);
+		// The engine reads quiet hours with plain SQL: they must be stored as the owner's wall-clock times, not
+		// shifted by the JVM's own time zone (tests run on India time to catch that).
+		assertThat(this.jdbc.queryForObject("SELECT quiet_start || '-' || quiet_end FROM businesses", String.class))
+			.isEqualTo("22:30:00-07:00:00");
 		assertThat(getAs(token, "/api/me")).bodyJson()
 			.extractingPath("$.business.name")
 			.isEqualTo("Bright Tuition Centre");

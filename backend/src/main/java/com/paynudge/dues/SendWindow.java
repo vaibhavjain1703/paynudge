@@ -12,6 +12,20 @@ import java.time.ZonedDateTime;
  */
 public record SendWindow(ZoneId zone, LocalTime quietStart, LocalTime quietEnd) {
 
+	/** Reminders go out at this time of day (business time) unless something moves them. */
+	public static final LocalTime SEND_TIME = LocalTime.of(10, 0);
+
+	/** From a business's settings, as stored. */
+	public static SendWindow of(String timezone, LocalTime quietStart, LocalTime quietEnd) {
+		return new SendWindow(ZoneId.of(timezone), quietStart, quietEnd);
+	}
+
+	/** The usual send time on the day after {@code moment}, outside quiet hours. */
+	public Instant nextDay(Instant moment) {
+		LocalDate tomorrow = moment.atZone(this.zone).toLocalDate().plusDays(1);
+		return nextAllowed(tomorrow.atTime(SEND_TIME).atZone(this.zone).toInstant());
+	}
+
 	/** The given moment if it is outside quiet hours, otherwise the moment quiet hours end. */
 	public Instant nextAllowed(Instant moment) {
 		ZonedDateTime local = moment.atZone(this.zone);

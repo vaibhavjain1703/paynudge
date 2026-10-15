@@ -86,3 +86,37 @@ Done when: a due schedules and its first reminder sends.
 - Customer reminders never reach real customers: Mailpit locally; production needs a sandbox decision at deploy
   (Mailtrap's free sandbox is ~50 emails/month; alternative: deliver every reminder to the owner's own inbox).
 - e2e runs two browsers: four were no faster on this 8 GB machine and once pushed Docker Desktop over.
+
+## Day 4: retries, lease reaper, quiet hours, stop rules, idempotent sends
+
+Done when: killing a worker mid-step still ends with one send.
+
+- [x] Crash safety: a claim leases the step under a fresh token (`due_steps.lease_token`, V5) and the executor holds
+  the step's row lock for the whole run, so a slow send is never taken over and a late worker cannot touch a step it
+  lost; a reaper (every 15 s) hands back steps whose worker died, and fails a step that kills every worker after five
+  tries
+- [x] Retries: provider outages retry after 30 s, 1, 2, 4 min plus up to 10% jitter; an address the provider refuses
+  fails at once; a failed step flags the due "Needs you" (ESCALATED)
+- [x] Checked just before each customer email: quiet hours as the business has them now, a day since the customer's
+  last email across all their dues, and the daily cap (`daily_sends`, reserved atomically so parallel workers never
+  pass it). A step that has to wait is postponed with a note; waiting is not a try
+- [x] Stop rules: `POST /api/dues/{id}/mark-paid` and `/cancel`, public `GET`/`POST /api/public/unsubscribe/{token}`
+  (also the one-click target of the List-Unsubscribe header). Each takes the lock a sending worker holds (due or
+  customer row), so a stop that lands mid-send waits for it and cancels the rest
+- [x] Emails carry a Message-ID fixed per step, `List-Unsubscribe` and `List-Unsubscribe-Post` (RFC 8058)
+- [x] Dues page: mark paid and stop reminders (with confirmation), "Unsubscribed" status; public unsubscribe page
+- [x] Tests: CrashRecoveryTest terminates a worker's database session mid-send and the customer still gets exactly
+  one email; slow sends past the lease, stale leases, poison steps; SendSafeguardsTest (quiet hours, gap, cap with
+  four workers); StopRulesTest (pay or unsubscribe mid-send); e2e unsubscribe from the email link and dues actions
+
+### Notes
+
+- One duplicate cannot be ruled out with SMTP: a worker that dies after the mail server accepted the email but before
+  its transaction commits. The retry sends the same Message-ID, which Gmail and most mail services collapse.
+- Fixed a Day 1 bug: `hibernate.jdbc.time_zone=UTC` shifted `TIME` columns by the JVM's offset, so on an IST machine
+  quiet hours were stored 5 h 30 early (the app read them back shifted, so it looked right). Removed; tests now run
+  with the JVM on India time (surefire `-Duser.timezone=Asia/Kolkata`) so CI, which is on UTC, catches this kind of
+  drift.
+- New setting `API_URL` (the API's public address, for one-click unsubscribe links). Defaults to
+  `http://localhost:8080`; set it at deploy.
+- Owner email digests for failed steps are left for later; failures show in the app as "Needs you".

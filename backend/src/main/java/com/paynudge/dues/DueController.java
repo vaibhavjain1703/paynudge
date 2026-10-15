@@ -46,4 +46,14 @@ class DueController {
 		return this.dues.detail(caller, id);
 	}
 
+	@PostMapping("/{id}/mark-paid")
+	DueDetail markPaid(Caller caller, @PathVariable long id) {
+		return this.dues.markPaid(caller, id);
+	}
+
+	@PostMapping("/{id}/cancel")
+	DueDetail cancel(Caller caller, @PathVariable long id) {
+		return this.dues.cancel(caller, id);
+	}
+
 }

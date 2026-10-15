@@ -176,7 +176,7 @@ function CustomerTable({
                 <TableCell className="max-w-0 sm:max-w-none">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{customer.name}</span>
-                    {customer.optedOut && <Badge variant="secondary">Opted out</Badge>}
+                    {customer.optedOut && <Badge variant="secondary">Unsubscribed</Badge>}
                   </div>
                   <div className="truncate text-xs text-muted-foreground sm:hidden">
                     {customer.email ?? (customer.phone && formatPhone(customer.phone))}

@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.paynudge.common.Money;
 import com.paynudge.common.PublicLinks;
+import com.paynudge.dues.SendWindow;
 import com.paynudge.policy.Placeholders;
 import com.paynudge.policy.PolicyDefinition.Step;
 
@@ -24,10 +25,10 @@ final class Reminders {
 	record Composed(String subject, String text) {
 	}
 
-	/** What a reminder is about: the due, its customer and the business. */
-	record DueFacts(long dueId, String status, long amountPaise, LocalDate dueDate, String payToken,
+	/** What a reminder is about: the due, its customer and the business (with its quiet hours, as they are now). */
+	record DueFacts(long dueId, String status, long amountPaise, LocalDate dueDate, String payToken, long customerId,
 			String customerName, String customerEmail, boolean customerOptedOut, String unsubscribeToken,
-			String businessName, String ownerEmail) {
+			String businessName, String ownerEmail, SendWindow window) {
 	}
 
 	static Composed customerEmail(Step step, DueFacts due, PublicLinks links) {
