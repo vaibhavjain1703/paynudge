@@ -36,6 +36,8 @@ class SecurityConfig implements WebMvcConfigurer {
 						"/api/auth/email/verify", "/api/auth/google")
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/auth/providers").permitAll()
+				// Razorpay calls this; the signature, not a session, proves who it is.
+				.requestMatchers(HttpMethod.POST, "/webhooks/razorpay").permitAll()
 				// Links in reminders: the customer has no account.
 				.requestMatchers("/api/public/**").permitAll()
 				.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()

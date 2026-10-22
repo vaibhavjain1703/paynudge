@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import com.paynudge.common.ApiException;
@@ -24,6 +25,7 @@ import com.paynudge.security.Caller;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -149,11 +151,35 @@ public class DueService {
 			throw ApiException.conflict(DUE_CANCELLED, "This due was cancelled, so it cannot be marked paid");
 		}
 		if (!DueStatus.PAID.equals(status)) {
-			this.jdbc.update("UPDATE dues SET status = ?, paid_at = ? WHERE id = ?", DueStatus.PAID,
-					this.clock.instant().atOffset(ZoneOffset.UTC), id);
-			stopReminders(id, "Due is paid");
+			settle(id, this.clock.instant());
 		}
 		return detail(caller, id);
+	}
+
+	/** A due as a payment sees it, locked by {@link #lockForPayment}. */
+	public record PayableDue(long id, long amountPaise, String status) {
+	}
+
+	/**
+	 * Finds the due a pay link belongs to and takes its row lock (the same lock a sending worker holds), so a payment
+	 * and a reminder never overlap. Must run inside the caller's transaction.
+	 */
+	@Transactional(propagation = Propagation.MANDATORY)
+	public Optional<PayableDue> lockForPayment(String payToken) {
+		return this.jdbc
+			.query("SELECT id, amount_paise, status FROM dues WHERE pay_token = ? FOR UPDATE",
+					(rs, row) -> new PayableDue(rs.getLong("id"), rs.getLong("amount_paise"), rs.getString("status")),
+					payToken)
+			.stream()
+			.findFirst();
+	}
+
+	/** Marks a locked due paid and cancels every reminder still waiting. Must run inside the caller's transaction. */
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void settle(long dueId, Instant paidAt) {
+		this.jdbc.update("UPDATE dues SET status = ?, paid_at = ? WHERE id = ?", DueStatus.PAID,
+				paidAt.atOffset(ZoneOffset.UTC), dueId);
+		stopReminders(dueId, "Due is paid");
 	}
 
 	/** The owner calls the due off: no more reminders. Repeating it changes nothing. */

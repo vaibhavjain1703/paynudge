@@ -1,12 +1,21 @@
 package com.paynudge.engine;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.IntStream;
 
 import com.jayway.jsonpath.JsonPath;
 import com.paynudge.IntegrationTest;
+import com.paynudge.dues.DueService;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +36,9 @@ abstract class EngineTestSupport extends IntegrationTest {
 	@Autowired
 	StepQueue queue;
 
+	@Autowired
+	DueService dues;
+
 	String token;
 
 	@BeforeEach
@@ -39,9 +51,50 @@ abstract class EngineTestSupport extends IntegrationTest {
 	}
 
 	long createDue(long customerId, String dueDate) {
-		long policy = ((Number) JsonPath.read(bodyOf(getAs(this.token, "/api/policies")), "$[0].id")).longValue();
-		return idOf(postAs(this.token, "/api/dues",
-				Map.of("customerId", customerId, "amountPaise", 150000, "dueDate", dueDate, "policyId", policy)));
+		return idOf(postAs(this.token, "/api/dues", Map.of("customerId", customerId, "amountPaise", 150000,
+				"dueDate", dueDate, "policyId", starterPolicy())));
+	}
+
+	/**
+	 * {@code count} customers with one ₹1,500 "Friendly then firm" due each, written in bulk as an import would (the
+	 * API, one due at a time, would take minutes). The daily cap is lifted so it never gets in the way.
+	 * @return the due ids, oldest first
+	 */
+	List<Long> bulkDues(int count, String dueDate) {
+		long business = this.jdbc.queryForObject("SELECT id FROM businesses", Long.class);
+		this.jdbc.update("UPDATE businesses SET daily_send_cap = 1000000 WHERE id = ?", business);
+		this.jdbc.batchUpdate("INSERT INTO customers (business_id, name, email, unsub_token) VALUES (?, ?, ?, ?)",
+				IntStream.range(0, count)
+					.mapToObj((i) -> new Object[] { business, "Customer " + i, "customer" + i + "@example.com",
+							UUID.randomUUID().toString() })
+					.toList());
+		List<Long> customers = this.jdbc.queryForList("SELECT id FROM customers WHERE business_id = ? ORDER BY id",
+				Long.class, business);
+		this.dues.createImported(business, starterPolicy(), customers.stream()
+			.map((customer) -> new DueService.ImportedDue(customer, 150000, LocalDate.parse(dueDate), null))
+			.toList());
+		return this.jdbc.queryForList("SELECT id FROM dues ORDER BY id", Long.class);
+	}
+
+	/** Runs {@code workers} workers at once until nothing is due. @return how many steps they ran in all */
+	int drainWith(int workers) throws Exception {
+		Callable<Integer> drain = this.worker::drain;
+		ExecutorService pool = Executors.newFixedThreadPool(workers);
+		try {
+			int ran = 0;
+			for (Future<Integer> result : pool.invokeAll(Collections.nCopies(workers, drain))) {
+				ran += result.get();
+			}
+			return ran;
+		}
+		finally {
+			pool.shutdown();
+		}
+	}
+
+	/** "Friendly then firm", the first starter policy. */
+	long starterPolicy() {
+		return ((Number) JsonPath.read(bodyOf(getAs(this.token, "/api/policies")), "$[0].id")).longValue();
 	}
 
 	/** "key STATUS attempt" for each step, in run order. */

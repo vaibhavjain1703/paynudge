@@ -6,6 +6,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import com.paynudge.channel.Channel;
 
@@ -24,6 +25,9 @@ public class RecordingChannel implements Channel {
 
 	private final AtomicReference<HeldSend> held = new AtomicReference<>();
 
+	private volatile Consumer<OutboundMessage> watcher = (message) -> {
+	};
+
 	@Override
 	public String name() {
 		return "EMAIL";
@@ -31,6 +35,7 @@ public class RecordingChannel implements Channel {
 
 	@Override
 	public String send(OutboundMessage message) {
+		this.watcher.accept(message);
 		HeldSend hold = this.held.getAndSet(null);
 		if (hold != null) {
 			hold.waitForRelease();
@@ -47,6 +52,11 @@ public class RecordingChannel implements Channel {
 
 	public List<OutboundMessage> sent() {
 		return List.copyOf(this.sent);
+	}
+
+	/** Runs at the moment of every send, before it counts: for tests that check what the world looked like then. */
+	public void watchSends(Consumer<OutboundMessage> watcher) {
+		this.watcher = watcher;
 	}
 
 	/** The next sends fail as an outage would: worth trying again. */
@@ -70,6 +80,8 @@ public class RecordingChannel implements Channel {
 		this.sent.clear();
 		this.failuresLeft.set(0);
 		this.refusalsLeft.set(0);
+		this.watcher = (message) -> {
+		};
 		HeldSend hold = this.held.getAndSet(null);
 		if (hold != null) {
 			hold.die();
