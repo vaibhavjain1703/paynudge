@@ -120,3 +120,34 @@ Done when: killing a worker mid-step still ends with one send.
 - New setting `API_URL` (the API's public address, for one-click unsubscribe links). Defaults to
   `http://localhost:8080`; set it at deploy.
 - Owner email digests for failed steps are left for later; failures show in the app as "Needs you".
+
+## Day 5: test day: duplicates, race, crash, webhook, isolation
+
+Done when: all correctness tests pass in CI.
+
+- [x] Payment webhook (`POST /webhooks/razorpay`), built now so its tests could be: HMAC-SHA256 signature over the raw
+  body checked first (constant time), then `payment_link.paid` finds its due by the pay token in the link's notes,
+  locks the due, records the payment (unique on the provider's payment id) and settles the due. Pay links, the pay
+  page and live updates stay on Day 7
+- [x] Duplicate sends: 8 workers drain 2,500 steps; every step DONE on its first try, every reminder sent once, in
+  policy order (`DuplicateSendsTest`)
+- [x] Pay versus remind: 2,000 trials racing a worker against the webhook; an outside connection checks the due at the
+  instant of every send; zero reminders after PAID, every trial ends paid with nothing waiting, both orders occur
+  (`PayVersusRemindRaceTest`)
+- [x] Crash recovery: Day 4's `CrashRecoveryTest` (killed mid-send, slow sends past the lease, poison steps)
+- [x] Webhook idempotency and security: redeliveries, eight simultaneous copies, forged, unsigned and altered events,
+  unknown links, other events, underpaid and cancelled dues (`PaymentWebhookTest`, `WebhookSignatureTest`)
+- [x] Isolation: `OwnerIsolationTest` lists every endpoint the app serves and fails if one has neither a check (one
+  owner against another's data) nor a stated reason it holds no business's data
+- [x] Retries: two failures then success take three tries with growing waits; permanent failures end at once
+- [x] Quiet hours and offsets: 10,000 random policies, dates, windows and zones (DST, half- and quarter-hour offsets)
+  (`DueSchedulePropertyTest`)
+- [x] Money: 100,000 random amounts read back exact to the paisa (`MoneyExactnessTest`)
+
+### Notes
+
+- In the race test, a worker that still has to claim the step usually loses (the webhook takes the due's lock in its
+  first query), so half the trials claim the step first and give the payment a random head start of up to 3 ms.
+  Locally the split was 525 reminder-first and 1,475 payment-first. Order is not what is tested; that a paid customer
+  is never reminded is.
+- New setting `RAZORPAY_WEBHOOK_SECRET`; until it is set, every webhook is refused (Day 7 sets it up).
