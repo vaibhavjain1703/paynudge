@@ -3,7 +3,7 @@
 import { FileUp, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { CustomerDialog } from "@/components/customers/customer-dialog";
 import { DeleteCustomerDialog } from "@/components/customers/delete-customer-dialog";
@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { type Customer, formatPhone, PAGE_SIZE, useCustomers } from "@/lib/customers";
 import { easeOut, useSafeTransition } from "@/lib/motion";
+import { useDebounced } from "@/lib/use-debounced";
 
 const MotionRow = motion.create(TableRow);
 
@@ -221,13 +222,4 @@ function TableSkeleton() {
       ))}
     </div>
   );
-}
-
-function useDebounced<T>(value: T, delayMs: number) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
 }
