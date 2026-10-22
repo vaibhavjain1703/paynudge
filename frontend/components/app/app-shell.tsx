@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLogout, useMe } from "@/lib/auth";
+import { useLiveUpdates } from "@/lib/live";
 import { easeOut } from "@/lib/motion";
 import { useToken } from "@/lib/session";
 
@@ -18,6 +19,7 @@ import { useToken } from "@/lib/session";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const token = useToken();
   const router = useRouter();
+  useLiveUpdates();
 
   useEffect(() => {
     if (token === null) router.replace("/login");
