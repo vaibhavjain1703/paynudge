@@ -153,6 +153,28 @@ class EngineTest extends EngineTestSupport {
 	}
 
 	@Test
+	void twoFailuresThenSuccessTakeThreeTriesWithGrowingWaits() {
+		long due = createDue(customer("Aarav Shah", "aarav@example.com"), "2026-01-20");
+		this.channel.failNext(2);
+		this.clock.set(FIRST_REMINDER);
+
+		this.worker.drain();
+		Duration firstWait = Duration.between(this.clock.instant(), runAt(due, "remind_1"));
+		this.clock.set(runAt(due, "remind_1"));
+		this.worker.drain();
+		Duration secondWait = Duration.between(this.clock.instant(), runAt(due, "remind_1"));
+		this.clock.set(runAt(due, "remind_1"));
+		this.worker.drain();
+
+		assertThat(firstWait).isBetween(Duration.ofSeconds(30), Duration.ofSeconds(33));
+		assertThat(secondWait).isBetween(Duration.ofSeconds(60), Duration.ofSeconds(66));
+		assertThat(stepStatuses(due).get(0)).isEqualTo("remind_1 DONE 3");
+		assertThat(this.channel.sent()).hasSize(1);
+		assertThat(messageCount()).isEqualTo(1);
+		assertThat(stepColumn(due, "remind_1", "error")).as("cleared once it went").isNull();
+	}
+
+	@Test
 	void aStepThatKeepsFailingStopsAfterFiveTriesAndTheDueNeedsTheOwner() {
 		long due = createDue(customer("Aarav Shah", "aarav@example.com"), "2026-01-20");
 		this.channel.failNext(5);

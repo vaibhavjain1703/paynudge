@@ -36,13 +36,18 @@ public class StepWorker {
 		if (claimed.isEmpty()) {
 			return false;
 		}
-		ClaimedStep step = claimed.get();
+		run(claimed.get());
+		return true;
+	}
+
+	/** Runs a step this worker has claimed. */
+	void run(ClaimedStep step) {
 		Optional<DailyCap.Slot> slot = Optional.empty();
 		if (step.emailsCustomer()) {
 			slot = this.dailyCap.take(step.dueId());
 			if (slot.isEmpty()) {
 				this.queue.postpone(step, this.dailyCap.nextDay(step.dueId()), "Today's email limit was reached");
-				return true;
+				return;
 			}
 		}
 		boolean sent = false;
@@ -64,7 +69,6 @@ public class StepWorker {
 				slot.ifPresent(this.dailyCap::giveBack);
 			}
 		}
-		return true;
 	}
 
 	/** Runs every step that is due now, one after another. @return how many ran */
