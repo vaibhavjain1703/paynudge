@@ -10,10 +10,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.paynudge.common.DueEvents.DueChanged;
 import com.paynudge.dues.DueStatus;
 import com.paynudge.dues.StepStatus;
 import com.paynudge.policy.PolicyDefinition;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,10 +35,13 @@ class StepQueue {
 
 	private final EngineProperties properties;
 
-	StepQueue(JdbcTemplate jdbc, Clock clock, EngineProperties properties) {
+	private final ApplicationEventPublisher events;
+
+	StepQueue(JdbcTemplate jdbc, Clock clock, EngineProperties properties, ApplicationEventPublisher events) {
 		this.jdbc = jdbc;
 		this.clock = clock;
 		this.properties = properties;
+		this.events = events;
 	}
 
 	/** A step a worker has claimed. {@code attempt} counts this try (1 for the first). */
@@ -73,10 +78,13 @@ class StepQueue {
 	 */
 	@Transactional
 	void postpone(ClaimedStep step, Instant runAt, String note) {
-		this.jdbc.update("""
+		int updated = this.jdbc.update("""
 				UPDATE due_steps SET status = 'PENDING', run_at = ?, attempt = attempt - 1, lease_until = NULL,
 				                     lease_token = NULL, note = ?
 				WHERE id = ? AND lease_token = ?""", utc(runAt), note, step.id(), step.leaseToken());
+		if (updated > 0) {
+			this.events.publishEvent(new DueChanged(step.dueId()));
+		}
 	}
 
 	/**
@@ -96,6 +104,9 @@ class StepQueue {
 				utc(giveUp ? now : now.plus(wait).plus(jitter)), truncate(error), step.id(), step.leaseToken());
 		if (giveUp && updated > 0) {
 			needsOwner(step.dueId());
+		}
+		if (updated > 0) {
+			this.events.publishEvent(new DueChanged(step.dueId()));
 		}
 	}
 
@@ -123,6 +134,7 @@ class StepQueue {
 				(rs, row) -> new Reaped(rs.getLong("due_id"), StepStatus.FAILED.equals(rs.getString("status"))),
 				this.properties.maxAttempts(), utc(now), this.properties.maxAttempts(), utc(now));
 		reaped.stream().filter(Reaped::failed).forEach((step) -> needsOwner(step.dueId()));
+		reaped.stream().map(Reaped::dueId).distinct().forEach((due) -> this.events.publishEvent(new DueChanged(due)));
 		return reaped.size();
 	}
 

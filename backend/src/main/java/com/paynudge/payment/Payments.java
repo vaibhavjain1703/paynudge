@@ -4,6 +4,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
+import com.paynudge.common.DueEvents.DueChanged;
 import com.paynudge.dues.DueService;
 import com.paynudge.dues.DueService.PayableDue;
 import com.paynudge.dues.DueStatus;
@@ -11,6 +12,7 @@ import com.paynudge.payment.RazorpayEvent.PaidLink;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,9 +45,12 @@ class Payments {
 
 	private final JdbcTemplate jdbc;
 
-	Payments(DueService dues, JdbcTemplate jdbc) {
+	private final ApplicationEventPublisher events;
+
+	Payments(DueService dues, JdbcTemplate jdbc, ApplicationEventPublisher events) {
 		this.dues = dues;
 		this.jdbc = jdbc;
+		this.events = events;
 	}
 
 	@Transactional
@@ -67,6 +72,7 @@ class Payments {
 		if (paid.amountPaise() < due.amountPaise()) {
 			log.warn("Payment below the due's amount dueId={} paymentId={} paidPaise={} duePaise={}", due.id(),
 					paid.paymentId(), paid.amountPaise(), due.amountPaise());
+			this.events.publishEvent(new DueChanged(due.id()));
 			return Outcome.UNDERPAID;
 		}
 		if (!DueStatus.PAID.equals(due.status())) {

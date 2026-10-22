@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.util.Map;
 
 import com.paynudge.common.ApiException;
+import com.paynudge.common.DueEvents.DuesChanged;
 import com.paynudge.common.ErrorCodes;
 import com.paynudge.common.PageResponse;
 import com.paynudge.common.Text;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,9 +34,12 @@ class CustomerService {
 
 	private final Clock clock;
 
-	CustomerService(CustomerRepository customers, Clock clock) {
+	private final ApplicationEventPublisher events;
+
+	CustomerService(CustomerRepository customers, Clock clock, ApplicationEventPublisher events) {
 		this.customers = customers;
 		this.clock = clock;
+		this.events = events;
 	}
 
 	/** Customers sorted by name. {@code query} matches part of a name, email or phone, ignoring case. */
@@ -83,6 +88,7 @@ class CustomerService {
 	@Transactional
 	void delete(Caller caller, long id) {
 		this.customers.delete(find(caller, id));
+		this.events.publishEvent(new DuesChanged(caller.businessId()));
 	}
 
 	private Customer find(Caller caller, long id) {

@@ -14,6 +14,7 @@ import com.paynudge.channel.Channel.ChannelException;
 import com.paynudge.channel.EmailDeliveryException;
 import com.paynudge.channel.EmailMessage;
 import com.paynudge.channel.EmailSender;
+import com.paynudge.common.DueEvents.DueChanged;
 import com.paynudge.common.PublicLinks;
 import com.paynudge.dues.DueStatus;
 import com.paynudge.dues.SendWindow;
@@ -27,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,8 +70,10 @@ class StepExecutor {
 
 	private final EngineProperties properties;
 
+	private final ApplicationEventPublisher events;
+
 	StepExecutor(JdbcTemplate jdbc, StepQueue queue, Channel channel, EmailSender ownerMail, PublicLinks links,
-			JsonMapper json, Clock clock, EngineProperties properties) {
+			JsonMapper json, Clock clock, EngineProperties properties, ApplicationEventPublisher events) {
 		this.jdbc = jdbc;
 		this.queue = queue;
 		this.channel = channel;
@@ -78,6 +82,7 @@ class StepExecutor {
 		this.json = json;
 		this.clock = clock;
 		this.properties = properties;
+		this.events = events;
 	}
 
 	/** @return true if an email went to the customer (and so used one of the business's sends for the day) */
@@ -207,11 +212,15 @@ class StepExecutor {
 				sentAt.atOffset(ZoneOffset.UTC));
 	}
 
-	/** Ends the step. The step's row is locked by this transaction, so the lease token still matches. */
+	/**
+	 * Ends the step. The step's row is locked by this transaction, so the lease token still matches. Open pages hear
+	 * about it once the transaction commits.
+	 */
 	private void finish(ClaimedStep step, String status, String error) {
 		this.jdbc.update("""
 				UPDATE due_steps SET status = ?, lease_until = NULL, lease_token = NULL, error = ?, note = NULL
 				WHERE id = ? AND lease_token = ?""", status, error, step.id(), step.leaseToken());
+		this.events.publishEvent(new DueChanged(step.dueId()));
 	}
 
 	/** The same for every try of a step: a resent email carries the same Message-ID. */

@@ -5,9 +5,11 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import com.paynudge.common.ApiException;
+import com.paynudge.common.DueEvents.DuesChanged;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +27,12 @@ class Unsubscribes {
 
 	private final Clock clock;
 
-	Unsubscribes(JdbcTemplate jdbc, Clock clock) {
+	private final ApplicationEventPublisher events;
+
+	Unsubscribes(JdbcTemplate jdbc, Clock clock, ApplicationEventPublisher events) {
 		this.jdbc = jdbc;
 		this.clock = clock;
+		this.events = events;
 	}
 
 	/** What the unsubscribe page shows: whose reminders, and whether they have already stopped. */
@@ -52,17 +57,20 @@ class Unsubscribes {
 	 */
 	@Transactional
 	UnsubscribeStatus unsubscribe(String token) {
-		List<Long> updated = this.jdbc.queryForList("""
+		List<long[]> updated = this.jdbc.query("""
 				UPDATE customers SET opted_out = true, opted_out_at = coalesce(opted_out_at, ?)
 				WHERE unsub_token = ?
-				RETURNING id""", Long.class, this.clock.instant().atOffset(ZoneOffset.UTC), token);
+				RETURNING id, business_id""", (rs, row) -> new long[] { rs.getLong("id"), rs.getLong("business_id") },
+				this.clock.instant().atOffset(ZoneOffset.UTC), token);
 		if (updated.isEmpty()) {
 			throw unknownLink();
 		}
+		long customer = updated.get(0)[0];
 		int cancelled = this.jdbc.update("""
 				UPDATE due_steps SET status = 'CANCELLED', error = 'Customer unsubscribed', note = NULL
-				WHERE status = 'PENDING' AND due_id IN (SELECT id FROM dues WHERE customer_id = ?)""", updated.get(0));
-		log.info("Customer unsubscribed customerId={} cancelledSteps={}", updated.get(0), cancelled);
+				WHERE status = 'PENDING' AND due_id IN (SELECT id FROM dues WHERE customer_id = ?)""", customer);
+		log.info("Customer unsubscribed customerId={} cancelledSteps={}", customer, cancelled);
+		this.events.publishEvent(new DuesChanged(updated.get(0)[1]));
 		return status(token);
 	}
 

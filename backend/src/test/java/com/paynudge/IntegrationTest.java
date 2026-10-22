@@ -52,6 +52,9 @@ public abstract class IntegrationTest {
 	protected RecordingChannel channel;
 
 	@Autowired
+	protected FakeRazorpay razorpay;
+
+	@Autowired
 	protected JsonMapper json;
 
 	private List<String> tables;
@@ -61,6 +64,7 @@ public abstract class IntegrationTest {
 		this.clock.reset();
 		this.emails.reset();
 		this.channel.reset();
+		this.razorpay.reset();
 		if (this.tables == null) {
 			this.tables = this.jdbc.queryForList(
 					"SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",
