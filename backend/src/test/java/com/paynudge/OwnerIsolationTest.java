@@ -137,6 +137,17 @@ class OwnerIsolationTest extends IntegrationTest {
 		checks.put("GET /api/policies", () -> assertThat(getAs(this.ravi, "/api/policies")).bodyJson()
 			.extractingPath("$[*].name")
 			.isEqualTo(List.of("Friendly then firm", "Gentle", "Firm")));
+		checks.put("GET /api/dashboard", () -> {
+			MvcTestResult dashboard = getAs(this.ravi, "/api/dashboard");
+			assertThat(dashboard).bodyJson().extractingPath("$.outstanding.dues").isEqualTo(0);
+			assertThat(dashboard).bodyJson().extractingPath("$.upcoming").asArray().isEmpty();
+		});
+		checks.put("POST /api/dues/bulk", () -> assertThat(postAs(this.ravi, "/api/dues/bulk",
+				Map.of("ids", List.of(this.ashasDue), "action", "cancel")))
+			.hasStatusOk()
+			.bodyJson()
+			.isStrictlyEqualTo("""
+					{"updated":0,"skipped":1}"""));
 		checks.put("POST /api/import/preview", () -> {
 			// Asha has a customer with this email; for Ravi it is someone new.
 			MvcTestResult preview = upload("/api/import/preview",

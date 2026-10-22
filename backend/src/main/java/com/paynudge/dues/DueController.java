@@ -3,10 +3,11 @@ package com.paynudge.dues;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
-import com.paynudge.common.PageResponse;
+import com.paynudge.dues.DueDtos.BulkActionRequest;
+import com.paynudge.dues.DueDtos.BulkActionResult;
 import com.paynudge.dues.DueDtos.CreateDueRequest;
 import com.paynudge.dues.DueDtos.DueDetail;
-import com.paynudge.dues.DueDtos.DueSummary;
+import com.paynudge.dues.DueDtos.DuePage;
 import com.paynudge.security.Caller;
 
 import org.springframework.http.HttpStatus;
@@ -35,10 +36,16 @@ class DueController {
 		return this.dues.create(caller, request);
 	}
 
+	/**
+	 * @param filter all, open, needs-you, overdue, paid or cancelled
+	 * @param q part of a customer's name, email or phone
+	 */
 	@GetMapping
-	PageResponse<DueSummary> list(Caller caller, @RequestParam(defaultValue = "0") @Min(0) int page,
+	DuePage list(Caller caller, @RequestParam(defaultValue = "all") String filter,
+			@RequestParam(name = "q", required = false) String q,
+			@RequestParam(defaultValue = "0") @Min(0) int page,
 			@RequestParam(defaultValue = "25") @Min(1) @Max(100) int size) {
-		return this.dues.list(caller, page, size);
+		return this.dues.list(caller, filter, q, page, size);
 	}
 
 	@GetMapping("/{id}")
@@ -54,6 +61,11 @@ class DueController {
 	@PostMapping("/{id}/cancel")
 	DueDetail cancel(Caller caller, @PathVariable long id) {
 		return this.dues.cancel(caller, id);
+	}
+
+	@PostMapping("/bulk")
+	BulkActionResult bulk(Caller caller, @RequestBody BulkActionRequest request) {
+		return this.dues.bulk(caller, request);
 	}
 
 }

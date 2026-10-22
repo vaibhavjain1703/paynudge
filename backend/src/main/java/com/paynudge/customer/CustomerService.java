@@ -1,7 +1,6 @@
 package com.paynudge.customer;
 
 import java.time.Clock;
-import java.util.Locale;
 import java.util.Map;
 
 import com.paynudge.common.ApiException;
@@ -43,7 +42,7 @@ class CustomerService {
 		Pageable pageable = PageRequest.of(page, size, BY_NAME);
 		String search = Text.stripToNull(query);
 		Page<Customer> result = (search == null) ? this.customers.findByBusinessId(caller.businessId(), pageable)
-				: this.customers.search(caller.businessId(), containsPattern(search), pageable);
+				: this.customers.search(caller.businessId(), Text.containsPattern(search), pageable);
 		return PageResponse.of(result, CustomerResponse::from);
 	}
 
@@ -98,14 +97,6 @@ class CustomerService {
 					Map.copyOf(parsed.errors()));
 		}
 		return parsed.fields();
-	}
-
-	private static String containsPattern(String search) {
-		String escaped = search.toLowerCase(Locale.ROOT)
-			.replace("\\", "\\\\")
-			.replace("%", "\\%")
-			.replace("_", "\\_");
-		return "%" + escaped + "%";
 	}
 
 	private static ApiException emailTaken() {
