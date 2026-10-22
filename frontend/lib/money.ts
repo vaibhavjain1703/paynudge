@@ -25,3 +25,22 @@ export function formatDateTime(isoInstant: string, timeZone: string) {
     timeZone,
   }).format(new Date(isoInstant));
 }
+
+const compactRupees = new Intl.NumberFormat("en-IN", {
+  notation: "compact",
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 1,
+});
+
+/** Short amounts for chart axes, in lakh and crore: 150000000 paise is "₹15L". */
+export function formatPaiseCompact(paise: number) {
+  return compactRupees.format(paise / 100);
+}
+
+const dayMonthFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** "2026-12-29" reads "29 Dec". */
+export function formatDayMonth(isoDate: string) {
+  return dayMonthFormat.format(new Date(`${isoDate}T00:00:00Z`));
+}

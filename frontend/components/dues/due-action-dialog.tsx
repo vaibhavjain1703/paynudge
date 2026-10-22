@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ApiError } from "@/lib/api";
-import { type DueAction, type DueSummary, useDueAction } from "@/lib/dues";
+import { type DueAction, useDueAction } from "@/lib/dues";
 import { formatPaise } from "@/lib/money";
 
 const COPY: Record<DueAction, { title: string; description: string; confirm: string }> = {
@@ -31,12 +31,15 @@ const COPY: Record<DueAction, { title: string; description: string; confirm: str
   },
 };
 
+/** What the dialog needs to know about the due: a row of the list or the detail page both fit. */
+export type DueRef = { id: number; amountPaise: number; customer: { name: string } };
+
 /** Confirms before marking a due paid or cancelling it: either stops its reminders for good. */
 export function DueActionDialog({
   target,
   onOpenChange,
 }: {
-  target: { due: DueSummary; action: DueAction } | null;
+  target: { due: DueRef; action: DueAction } | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const act = useDueAction();

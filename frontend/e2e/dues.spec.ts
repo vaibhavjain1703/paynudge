@@ -53,3 +53,37 @@ test("the owner marks one due paid and stops another's reminders", async ({ page
   await expect(diya).toContainText("Cancelled");
   await page.screenshot({ path: test.info().outputPath("dues-actions.png"), fullPage: true });
 });
+
+test("the owner filters, searches and stops many dues at once", async ({ page, request }) => {
+  const { token } = await signInAsNewOwner(page, request);
+  for (const name of ["Aarav", "Diya", "Kabir"]) {
+    await dueFor(request, token, name);
+  }
+
+  await page.goto("/dues");
+  const chips = page.getByRole("group", { name: "Show" });
+  await expect(chips.getByRole("button", { name: /^All/ })).toContainText("3");
+  await chips.getByRole("button", { name: /^Paid/ }).click();
+  await expect(page.getByText("No paid dues.")).toBeVisible();
+  await chips.getByRole("button", { name: /^All/ }).click();
+
+  await page.getByLabel("Search dues").fill("diy");
+  await expect(page.getByRole("row")).toHaveCount(2); // header + Diya
+  await expect(page.getByRole("row", { name: /Diya/ })).toBeVisible();
+  await page.getByLabel("Search dues").fill("");
+  await expect(page.getByRole("row")).toHaveCount(4);
+
+  await page.getByLabel("Select Aarav's due").check();
+  await page.getByLabel("Select Kabir's due").check();
+  const selection = page.getByRole("region", { name: "Selected dues" });
+  await expect(selection).toContainText("2 selected");
+  await selection.getByRole("button", { name: "Mark paid" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Mark as paid" }).click();
+
+  await expect(selection).toBeHidden();
+  await expect(page.getByRole("row", { name: /Aarav/ })).toContainText("Paid");
+  await expect(page.getByRole("row", { name: /Kabir/ })).toContainText("Paid");
+  await expect(page.getByRole("row", { name: /Diya/ })).toContainText("Scheduled");
+  await expect(chips.getByRole("button", { name: /^Paid/ })).toContainText("2");
+  await page.screenshot({ path: test.info().outputPath("dues-bulk.png"), fullPage: true });
+});

@@ -151,3 +151,26 @@ Done when: all correctness tests pass in CI.
   Locally the split was 525 reminder-first and 1,475 payment-first. Order is not what is tested; that a paid customer
   is never reminded is.
 - New setting `RAZORPAY_WEBHOOK_SECRET`; until it is set, every webhook is refused (Day 7 sets it up).
+
+## Day 6: dashboard, dues list, due detail with animated timeline
+
+Done when: the timeline shows scheduled and sent steps.
+
+- [x] `GET /api/dashboard`: collected this month, outstanding, overdue (sums and counts), needs-you, twelve weeks of
+  collections and the next five reminders, all on the business's own calendar (a payment at 00:30 on 1 January in
+  Kolkata counts in January)
+- [x] Dashboard page: tiles that count up and open the matching dues filter; a collections chart (one series in the
+  validated `--chart-1` hue, the tallest bar labelled, every bar's value on hover or focus, a table view); "Coming up"
+- [x] Dues: `filter` (all, open, needs-you, overdue, paid, cancelled) and `q` search on `GET /api/dues`, with the count
+  behind each chip; `POST /api/dues/bulk` (up to 100, locked in id order); chips, search, row selection and a bulk bar
+- [x] Due detail (`/dues/[id]`): the timeline. Each step with its day and tone (from the due's own policy copy), the
+  email's subject and send time, skipped, scheduled, cancelled and failed states with reasons, the payment where it
+  landed and a "Now" marker; mark paid and stop reminders from the page; refreshes every 15 s while open
+- [x] e2e: an imported overdue due's timeline shows the sent reminder and the scheduled ones, then cancels the rest
+  when marked paid, and the dashboard counts it collected; filters, search and bulk mark-paid
+
+### Notes
+
+- The detail page polls until Day 7's live updates (SSE) replace it.
+- Chart colour checked with the dataviz palette validator: `--chart-1` passes on the light card; in dark mode its
+  step moved from L 0.78 to 0.66 to sit in the band.

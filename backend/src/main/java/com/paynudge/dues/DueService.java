@@ -3,6 +3,7 @@ package com.paynudge.dues;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.HashSet;
@@ -14,11 +15,13 @@ import java.util.Set;
 
 import com.paynudge.common.ApiException;
 import com.paynudge.common.ErrorCodes;
-import com.paynudge.common.PageResponse;
+import com.paynudge.common.Text;
 import com.paynudge.customer.CustomerRepository;
 import com.paynudge.dues.DueDtos.CreateDueRequest;
 import com.paynudge.dues.DueDtos.DueDetail;
-import com.paynudge.dues.DueDtos.DueSummary;
+import com.paynudge.dues.DueDtos.BulkActionRequest;
+import com.paynudge.dues.DueDtos.BulkActionResult;
+import com.paynudge.dues.DueDtos.DuePage;
 import com.paynudge.policy.PolicyService;
 import com.paynudge.security.Caller;
 
@@ -37,6 +40,9 @@ public class DueService {
 
 	/** ₹1 crore: a guard against typos, matching the CSV import. */
 	static final long MAX_AMOUNT_PAISE = 1_000_000_000L;
+
+	/** The most dues one bulk action may change: a page of the list. */
+	static final int MAX_BULK = 100;
 
 	static final String DUE_PAID = "DUE_PAID";
 
@@ -132,8 +138,46 @@ public class DueService {
 		return detail(caller, created.ids().get(0));
 	}
 
-	PageResponse<DueSummary> list(Caller caller, int page, int size) {
-		return this.queries.list(caller.businessId(), page, size);
+	DuePage list(Caller caller, String filter, String search, int page, int size) {
+		ZoneId zone = ZoneId.of(this.jdbc.queryForObject("SELECT timezone FROM businesses WHERE id = ?", String.class,
+				caller.businessId()));
+		return this.queries.list(caller.businessId(), DueFilter.from(filter), Text.stripToNull(search),
+				this.clock.instant().atZone(zone).toLocalDate(), page, size);
+	}
+
+	/**
+	 * Marks many dues paid, or cancels them, in one go. Dues the action cannot change (another business's, or already
+	 * paid or cancelled) are skipped. The dues are locked in id order, so two bulk actions never deadlock.
+	 */
+	@Transactional
+	BulkActionResult bulk(Caller caller, BulkActionRequest request) {
+		boolean markPaid = "mark-paid".equals(request.action());
+		if (!markPaid && !"cancel".equals(request.action())) {
+			throw ApiException.invalidField("action", "Use mark-paid or cancel");
+		}
+		if (request.ids() == null || request.ids().isEmpty() || request.ids().size() > MAX_BULK) {
+			throw ApiException.invalidField("ids", "Choose between 1 and " + MAX_BULK + " dues");
+		}
+		List<Map<String, Object>> found = this.jdbc.queryForList("""
+				SELECT id, status FROM dues WHERE business_id = ? AND id = ANY (?)
+				ORDER BY id FOR UPDATE""", caller.businessId(), request.ids().toArray(Long[]::new));
+		int updated = 0;
+		for (Map<String, Object> due : found) {
+			long id = ((Number) due.get("id")).longValue();
+			String status = (String) due.get("status");
+			if (DueStatus.CLOSED.contains(status)) {
+				continue;
+			}
+			if (markPaid) {
+				settle(id, this.clock.instant());
+			}
+			else {
+				this.jdbc.update("UPDATE dues SET status = ? WHERE id = ?", DueStatus.CANCELLED, id);
+				stopReminders(id, "Due is cancelled");
+			}
+			updated++;
+		}
+		return new BulkActionResult(updated, new HashSet<>(request.ids()).size() - updated);
 	}
 
 	DueDetail detail(Caller caller, long id) {
