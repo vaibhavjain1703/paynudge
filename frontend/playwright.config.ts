@@ -7,6 +7,8 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export const E2E_API_URL = "http://localhost:8180";
 const E2E_WEB_URL = "http://localhost:3100";
+/** The e2e API's Razorpay webhook secret: tests sign webhook events with it, as Razorpay would. */
+export const E2E_WEBHOOK_SECRET = "e2e-webhook-secret";
 
 const inheritedEnv = Object.fromEntries(
   Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
@@ -47,6 +49,7 @@ export default defineConfig({
         APP_URL: E2E_WEB_URL,
         // One-click unsubscribe links in reminder headers point at this API.
         API_URL: E2E_API_URL,
+        RAZORPAY_WEBHOOK_SECRET: E2E_WEBHOOK_SECRET,
       },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

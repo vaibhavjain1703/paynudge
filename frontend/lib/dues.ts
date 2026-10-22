@@ -97,9 +97,8 @@ export function useDues(page: number, filter: DueFilter = "all", search = "") {
 export function useDue(id: number) {
   return useQuery({
     queryKey: dueKeys.detail(id),
+    // Kept current by the live stream (lib/live.ts), which drops every change to the due straight in here.
     queryFn: ({ signal }) => api<DueDetail>(`/api/dues/${id}`, { signal }),
-    // While reminders may still go out, look again now and then so the timeline keeps up (live updates come on Day 7).
-    refetchInterval: (query) => (query.state.data && isOpen(query.state.data.status) ? 15_000 : false),
   });
 }
 

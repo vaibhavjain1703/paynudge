@@ -174,3 +174,27 @@ Done when: the timeline shows scheduled and sent steps.
 - The detail page polls until Day 7's live updates (SSE) replace it.
 - Chart colour checked with the dataviz palette validator: `--chart-1` passes on the light card; in dark mode its
   step moved from L 0.78 to 0.66 to sit in the band.
+
+## Day 7: pay link, pay page, verified webhook, SSE live updates
+
+Done when: a test payment flips the due to PAID live.
+
+- [x] Pay page (`/pay/[token]`, public): business, the customer's first name, amount and due date, and "Pay"; paid and
+  cancelled states; a broken link says so
+- [x] Payment links: `POST /api/public/pay/{token}/link` makes a Razorpay test-mode link on the first click (full
+  amount, Razorpay's own SMS/email/WhatsApp off, the pay token in its notes, back to the pay page, 7 days) and reuses
+  it until a day is left (V6 stores it on the due)
+- [x] The return trip: Razorpay's signed result (HMAC with the key secret) is checked, the payment is read from
+  Razorpay and recorded through the webhook's path, so either may arrive second. Payments therefore work locally,
+  where Razorpay cannot reach the webhook
+- [x] Live updates: `GET /api/events` (server-sent events per business, read with fetch so the token stays in a
+  header). Committed changes publish "due" (the due as its page shows it, merged into the query cache) or "dues"
+  (refetch); every connect starts with "ready" so a reconnect is never stale. The due page's polling is gone
+- [x] e2e: the owner's open due page turns PAID by itself when a signed webhook lands, and the customer's pay page
+  then says thank you. Checked by hand against Razorpay's real test API: link created and reused as above
+
+### Notes
+
+- `RAZORPAY_WEBHOOK_SECRET` is generated in `secrets.local.env`; on Day 8, with a public API URL, add the webhook in
+  Razorpay (Test Mode, Webhooks, event `payment_link.paid`) with that secret.
+- One API process holds the live streams; more than one would need Postgres LISTEN/NOTIFY between them.

@@ -3,6 +3,8 @@ package com.paynudge.security;
 import java.time.Duration;
 import java.util.List;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -42,6 +44,8 @@ class SecurityConfig implements WebMvcConfigurer {
 				.requestMatchers("/api/public/**").permitAll()
 				.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 				.requestMatchers("/error").permitAll()
+				// A live stream (/api/events) ends on an async dispatch; its request was authenticated when it began.
+				.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
 				.anyRequest().authenticated())
 			.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults())
 				.authenticationEntryPoint(errors)

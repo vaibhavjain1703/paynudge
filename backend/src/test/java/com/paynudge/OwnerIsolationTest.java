@@ -9,6 +9,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import com.jayway.jsonpath.JsonPath;
+import com.paynudge.realtime.LiveUpdates;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,10 +21,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.MockPart;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 /**
  * One owner can never read or change another's data, through any endpoint. Every endpoint the app serves must either
@@ -33,21 +38,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OwnerIsolationTest extends IntegrationTest {
 
 	/** Endpoints with no business's data to keep apart, and why. */
-	private static final Map<String, String> NOT_OWNER_SCOPED = Map.of(
-			"POST /api/auth/signup", "creates a new owner and business; reads nothing that exists",
-			"POST /api/auth/login", "sign-in: returns only the caller's own session",
-			"POST /api/auth/email/start", "sign-in: emails a code to the address given",
-			"POST /api/auth/email/verify", "sign-in: returns only the caller's own session",
-			"POST /api/auth/google", "sign-in: returns only the caller's own session",
-			"GET /api/auth/providers", "which sign-in methods are on",
-			"GET /api/public/unsubscribe/{token}", "the customer's own secret link, not an owner (UnsubscribeApiTest)",
-			"POST /api/public/unsubscribe/{token}", "the customer's own secret link, not an owner (UnsubscribeApiTest)",
-			"POST /webhooks/razorpay", "Razorpay's signed events; a payment finds its due by its link",
-			"* /error", "renders errors");
+	private static final Map<String, String> NOT_OWNER_SCOPED = Map.ofEntries(
+			Map.entry("POST /api/auth/signup", "creates a new owner and business; reads nothing that exists"),
+			Map.entry("POST /api/auth/login", "sign-in: returns only the caller's own session"),
+			Map.entry("POST /api/auth/email/start", "sign-in: emails a code to the address given"),
+			Map.entry("POST /api/auth/email/verify", "sign-in: returns only the caller's own session"),
+			Map.entry("POST /api/auth/google", "sign-in: returns only the caller's own session"),
+			Map.entry("GET /api/auth/providers", "which sign-in methods are on"),
+			Map.entry("GET /api/public/unsubscribe/{token}", "the customer's own secret link (UnsubscribeApiTest)"),
+			Map.entry("POST /api/public/unsubscribe/{token}", "the customer's own secret link (UnsubscribeApiTest)"),
+			Map.entry("GET /api/public/pay/{token}", "the customer's own secret pay link (PayPageApiTest)"),
+			Map.entry("POST /api/public/pay/{token}/link", "the customer's own secret pay link (PayPageApiTest)"),
+			Map.entry("POST /api/public/pay/{token}/confirm", "the pay link and Razorpay's signature (PayPageApiTest)"),
+			Map.entry("POST /webhooks/razorpay", "Razorpay's signed events; a payment finds its due by its link"),
+			Map.entry("* /error", "renders errors"));
 
 	@Autowired
 	@Qualifier("requestMappingHandlerMapping")
 	private RequestMappingHandlerMapping mappings;
+
+	@Autowired
+	private MockMvc streams;
+
+	@Autowired
+	private LiveUpdates live;
 
 	private String asha;
 
@@ -137,6 +151,20 @@ class OwnerIsolationTest extends IntegrationTest {
 		checks.put("GET /api/policies", () -> assertThat(getAs(this.ravi, "/api/policies")).bodyJson()
 			.extractingPath("$[*].name")
 			.isEqualTo(List.of("Friendly then firm", "Gentle", "Firm")));
+		checks.put("GET /api/events", () -> {
+			// Ravi's stream is filed under his business, so nothing of Asha's is ever sent down it
+			// (LiveUpdatesApiTest checks a real change reaches one and not the other).
+			try {
+				MvcResult stream = this.streams.perform(get("/api/events")
+					.header(HttpHeaders.AUTHORIZATION, "Bearer " + this.ravi)).andReturn();
+				assertThat(stream.getRequest().isAsyncStarted()).isTrue();
+			}
+			catch (Exception ex) {
+				throw new AssertionError(ex);
+			}
+			assertThat(this.live.watching(businessOf("ravi@example.com"))).isTrue();
+			assertThat(this.live.watching(businessOf("asha@example.com"))).isFalse();
+		});
 		checks.put("GET /api/dashboard", () -> {
 			MvcTestResult dashboard = getAs(this.ravi, "/api/dashboard");
 			assertThat(dashboard).bodyJson().extractingPath("$.outstanding.dues").isEqualTo(0);
@@ -199,6 +227,18 @@ class OwnerIsolationTest extends IntegrationTest {
 						"dailySendCap", 100)))
 			.hasStatusOk());
 		return checks;
+	}
+
+	@AfterEach
+	void closeStreams() {
+		this.live.stop();
+		this.live.start();
+	}
+
+	private long businessOf(String ownerEmail) {
+		return this.jdbc.queryForObject(
+				"SELECT b.id FROM businesses b JOIN users u ON u.id = b.owner_id WHERE u.email = ?", Long.class,
+				ownerEmail);
 	}
 
 	private static void notFound(MvcTestResult result) {

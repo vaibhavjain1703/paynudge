@@ -14,6 +14,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.paynudge.common.ApiException;
+import com.paynudge.common.DueEvents.DueChanged;
+import com.paynudge.common.DueEvents.DuesChanged;
 import com.paynudge.common.ErrorCodes;
 import com.paynudge.common.Text;
 import com.paynudge.customer.CustomerRepository;
@@ -25,6 +27,7 @@ import com.paynudge.dues.DueDtos.DuePage;
 import com.paynudge.policy.PolicyService;
 import com.paynudge.security.Caller;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -60,14 +63,17 @@ public class DueService {
 
 	private final Clock clock;
 
+	private final ApplicationEventPublisher events;
+
 	DueService(DueWriter writer, DueQueries queries, PolicyService policies, CustomerRepository customers,
-			JdbcTemplate jdbc, Clock clock) {
+			JdbcTemplate jdbc, Clock clock, ApplicationEventPublisher events) {
 		this.writer = writer;
 		this.queries = queries;
 		this.policies = policies;
 		this.customers = customers;
 		this.jdbc = jdbc;
 		this.clock = clock;
+		this.events = events;
 	}
 
 	/** One due imported from a CSV row; {@code importKey} fingerprints the row so a re-import skips it. */
@@ -88,6 +94,7 @@ public class DueService {
 		DueWriter.Created created = this.writer.create(businessId, policy, dues.stream()
 			.map((due) -> new DueWriter.NewDue(due.customerId(), due.amountPaise(), due.dueDate(), due.importKey()))
 			.toList());
+		this.events.publishEvent(new DuesChanged(businessId));
 		return new ImportOutcome(created.ids().size(), created.firstReminderAt());
 	}
 
@@ -135,6 +142,7 @@ public class DueService {
 		PolicyService.Snapshot policy = this.policies.snapshot(caller.businessId(), request.policyId());
 		DueWriter.Created created = this.writer.create(caller.businessId(), policy, List
 			.of(new DueWriter.NewDue(request.customerId(), request.amountPaise(), request.dueDate(), null)));
+		this.events.publishEvent(new DuesChanged(caller.businessId()));
 		return detail(caller, created.ids().get(0));
 	}
 
@@ -176,6 +184,9 @@ public class DueService {
 				stopReminders(id, "Due is cancelled");
 			}
 			updated++;
+		}
+		if (updated > 0) {
+			this.events.publishEvent(new DuesChanged(caller.businessId()));
 		}
 		return new BulkActionResult(updated, new HashSet<>(request.ids()).size() - updated);
 	}
@@ -224,6 +235,7 @@ public class DueService {
 		this.jdbc.update("UPDATE dues SET status = ?, paid_at = ? WHERE id = ?", DueStatus.PAID,
 				paidAt.atOffset(ZoneOffset.UTC), dueId);
 		stopReminders(dueId, "Due is paid");
+		this.events.publishEvent(new DueChanged(dueId));
 	}
 
 	/** The owner calls the due off: no more reminders. Repeating it changes nothing. */
@@ -236,6 +248,7 @@ public class DueService {
 		if (!DueStatus.CANCELLED.equals(status)) {
 			this.jdbc.update("UPDATE dues SET status = ? WHERE id = ?", DueStatus.CANCELLED, id);
 			stopReminders(id, "Due is cancelled");
+			this.events.publishEvent(new DueChanged(id));
 		}
 		return detail(caller, id);
 	}
