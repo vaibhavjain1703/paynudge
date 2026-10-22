@@ -48,6 +48,7 @@ class DashboardQueries {
 	}
 
 	/**
+	 * @param dues every due the business has, in any state
 	 * @param collectedThisMonth dues paid since the 1st of this month
 	 * @param outstanding dues not yet paid or cancelled
 	 * @param overdue outstanding dues whose due date has passed
@@ -55,8 +56,8 @@ class DashboardQueries {
 	 * @param collections paid per week, oldest first, the last being this week
 	 * @param upcoming the next reminders and owner notices, soonest first
 	 */
-	record Dashboard(Total collectedThisMonth, Total outstanding, Total overdue, long needsYou, List<Week> collections,
-			List<Upcoming> upcoming) {
+	record Dashboard(long dues, Total collectedThisMonth, Total outstanding, Total overdue, long needsYou,
+			List<Week> collections, List<Upcoming> upcoming) {
 	}
 
 	Dashboard load(long businessId) {
@@ -75,7 +76,8 @@ class DashboardQueries {
 				                                         AND due_date < ?), 0) AS overdue,
 				       count(*) FILTER (WHERE status IN ('SCHEDULED', 'ACTIVE', 'ESCALATED') AND due_date < ?)
 				           AS overdue_dues,
-				       count(*) FILTER (WHERE status = 'ESCALATED') AS needs_you
+				       count(*) FILTER (WHERE status = 'ESCALATED') AS needs_you,
+				       count(*) AS all_dues
 				FROM dues WHERE business_id = ?""", startOf(today.withDayOfMonth(1), zone),
 				startOf(today.withDayOfMonth(1), zone), today, today, businessId);
 
@@ -103,8 +105,9 @@ class DashboardQueries {
 				rs.getLong("amount_paise"), rs.getString("step_key"), rs.getString("action"),
 				rs.getObject("run_at", OffsetDateTime.class).toInstant()), businessId, UPCOMING);
 
-		return new Dashboard(total(totals, "collected"), total(totals, "outstanding"), total(totals, "overdue"),
-				((Number) totals.get("needs_you")).longValue(), collections, upcoming);
+		return new Dashboard(((Number) totals.get("all_dues")).longValue(), total(totals, "collected"),
+				total(totals, "outstanding"), total(totals, "overdue"), ((Number) totals.get("needs_you")).longValue(),
+				collections, upcoming);
 	}
 
 	private static Total total(Map<String, Object> row, String name) {

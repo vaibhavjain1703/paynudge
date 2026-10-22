@@ -47,7 +47,7 @@ class DashboardApiTest extends IntegrationTest {
 		MvcTestResult result = getAs(this.token, "/api/dashboard");
 
 		assertThat(result).hasStatusOk().bodyJson().isLenientlyEqualTo("""
-				{"collectedThisMonth":{"paise":80000,"dues":2},
+				{"dues":7,"collectedThisMonth":{"paise":80000,"dues":2},
 				 "outstanding":{"paise":460000,"dues":3},
 				 "overdue":{"paise":310000,"dues":2},
 				 "needsYou":1}""");
@@ -73,7 +73,7 @@ class DashboardApiTest extends IntegrationTest {
 		MvcTestResult result = getAs(this.token, "/api/dashboard");
 
 		assertThat(result).hasStatusOk().bodyJson().isLenientlyEqualTo("""
-				{"collectedThisMonth":{"paise":0,"dues":0},"outstanding":{"paise":0,"dues":0},
+				{"dues":0,"collectedThisMonth":{"paise":0,"dues":0},"outstanding":{"paise":0,"dues":0},
 				 "overdue":{"paise":0,"dues":0},"needsYou":0,"upcoming":[]}""");
 		assertThat(result).bodyJson().extractingPath("$.collections[*].paise").asArray().hasSize(12).containsOnly(0);
 	}
