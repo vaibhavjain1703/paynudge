@@ -104,6 +104,17 @@ class LiveUpdatesApiTest extends IntegrationTest {
 	}
 
 	@Test
+	void aDueTypedInOnTheImportPageReachesOpenDuesLists() throws Exception {
+		MvcResult stream = open(this.asha);
+		long policy = ((Number) JsonPath.read(bodyOf(getAs(this.asha, "/api/policies")), "$[0].id")).longValue();
+
+		postAs(this.asha, "/api/import/manual", Map.of("name", "Rohan Gupta", "email", "rohan@example.com", "amount",
+				"8500", "dueDate", "2026-01-20", "policyId", policy));
+
+		eventually(() -> read(stream), "event:dues");
+	}
+
+	@Test
 	void nobodyWatchingMeansNothingIsBuiltOrSent() {
 		long business = this.jdbc.queryForObject("SELECT id FROM businesses", Long.class);
 

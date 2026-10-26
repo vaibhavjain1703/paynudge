@@ -15,17 +15,23 @@ import java.util.Map;
 import java.util.Set;
 
 import com.paynudge.common.ApiException;
+import com.paynudge.common.ErrorCodes;
 import com.paynudge.csvimport.CsvReader.CsvRow;
 import com.paynudge.csvimport.CsvReader.CsvTable;
 import com.paynudge.csvimport.ImportDtos.ImportPreview;
 import com.paynudge.csvimport.ImportDtos.ImportResult;
+import com.paynudge.csvimport.ImportDtos.ManualEntryRequest;
+import com.paynudge.csvimport.ImportDtos.ManualEntryResult;
 import com.paynudge.csvimport.ImportDtos.PreviewRow;
 import com.paynudge.csvimport.ImportDtos.Summary;
+import com.paynudge.customer.Customer;
 import com.paynudge.customer.CustomerFields;
 import com.paynudge.customer.CustomerImporter;
+import com.paynudge.customer.CustomerRepository;
 import com.paynudge.dues.DueService;
 import com.paynudge.security.Caller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,17 +42,63 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>
  * Each row has a fingerprint (its tidied name, contact, amount and due date). A row whose fingerprint is already on a
  * due was imported before and is skipped, so importing the same file twice never reminds anyone twice.
+ * <p>
+ * A due can also be typed in by hand ({@link #add}): it is checked like a row and gets the same fingerprint.
  */
 @Service
 class ImportService {
 
+	static final String DUE_EXISTS = "DUE_EXISTS";
+
 	private final CustomerImporter customers;
+
+	private final CustomerRepository customerRepository;
 
 	private final DueService dues;
 
-	ImportService(CustomerImporter customers, DueService dues) {
+	ImportService(CustomerImporter customers, CustomerRepository customerRepository, DueService dues) {
 		this.customers = customers;
+		this.customerRepository = customerRepository;
 		this.dues = dues;
+	}
+
+	/**
+	 * One due typed in on the import page. It follows the CSV rules: the same checks, the same match with a customer
+	 * already in the list (who keeps their own details), and the same fingerprint, so the same due typed twice, or
+	 * typed after it was imported, is refused instead of reminding anyone twice.
+	 */
+	@Transactional
+	ManualEntryResult add(Caller caller, ManualEntryRequest request) {
+		Map<String, String> values = new HashMap<>();
+		values.put("name", request.name());
+		values.put("email", request.email());
+		values.put("phone", request.phone());
+		values.put("amount", request.amount());
+		values.put("dueDate", request.dueDate());
+		Entry entry = Entry.check(values, true);
+		Map<String, Object> errors = new LinkedHashMap<>(entry.errors());
+		if (request.policyId() == null) {
+			errors.put("policyId", "Choose a reminder policy");
+		}
+		if (!errors.isEmpty()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, ErrorCodes.VALIDATION_FAILED, "Request validation failed",
+					errors);
+		}
+
+		long businessId = caller.businessId();
+		this.dues.lockImports(businessId);
+		this.dues.findByImportKey(businessId, entry.importKey()).ifPresent((existing) -> {
+			throw new ApiException(HttpStatus.CONFLICT, DUE_EXISTS, "This due is already in your list",
+					Map.of("dueId", existing));
+		});
+		CustomerImporter.Imported imported = this.customers.findOrCreate(businessId, List.of(entry.customer()));
+		long customerId = imported.idsByKey().get(entry.customer().key());
+		DueService.ImportOutcome outcome = this.dues.createImported(businessId, request.policyId(), List
+			.of(new DueService.ImportedDue(customerId, entry.amountPaise(), entry.dueDate(), entry.importKey())));
+		Customer customer = this.customerRepository.findByIdAndBusinessId(customerId, businessId).orElseThrow();
+		return new ManualEntryResult(outcome.ids().get(0), customerId, customer.getName(), imported.created() > 0,
+				customer.isOptedOut(), entry.amountPaise(), entry.dueDate(),
+				customer.isOptedOut() ? null : outcome.firstReminderAt());
 	}
 
 	ImportPreview preview(Caller caller, byte[] file, ColumnMapping requested) {
@@ -147,36 +199,13 @@ class ImportService {
 	private static Checked check(CsvRow row, Map<String, Integer> columns) {
 		Map<String, String> values = new LinkedHashMap<>();
 		columns.forEach((field, column) -> values.put(field, row.cell(column)));
-		Map<String, String> errors = new LinkedHashMap<>();
-
-		CustomerFields.Parsed customer = CustomerFields.parse(values.get("name"), values.get("email"),
-				values.get("phone"));
-		errors.putAll(customer.errors());
-		if (errors.containsKey("email") && !columns.containsKey("email")) {
-			// "Add an email or a phone number" belongs to whichever contact column the file has.
-			errors.put("phone", errors.remove("email"));
-		}
-		Long amountPaise = null;
-		try {
-			amountPaise = Amounts.parsePaise(values.get("amount"));
-		}
-		catch (CellException ex) {
-			errors.put("amount", ex.getMessage());
-		}
-		LocalDate dueDate = null;
-		try {
-			dueDate = DueDates.parse(values.get("dueDate"));
-		}
-		catch (CellException ex) {
-			errors.put("dueDate", ex.getMessage());
-		}
-		String importKey = errors.isEmpty() ? importKey(customer.fields(), amountPaise, dueDate) : null;
-		return new Checked(row, values, customer.fields(), amountPaise, dueDate, Map.copyOf(errors), importKey, null,
-				false, false);
+		Entry entry = Entry.check(values, columns.containsKey("email"));
+		return new Checked(row, values, entry.customer(), entry.amountPaise(), entry.dueDate(), entry.errors(),
+				entry.importKey(), null, false, false);
 	}
 
-	/** The row's fingerprint, from tidied values: a re-export with different spacing or case still matches. */
-	private static String importKey(CustomerFields customer, long amountPaise, LocalDate dueDate) {
+	/** The fingerprint, from tidied values: a re-export with different spacing or case still matches. */
+	private static String fingerprint(CustomerFields customer, long amountPaise, LocalDate dueDate) {
 		String row = String.join("\n", customer.name().toLowerCase(Locale.ROOT), String.valueOf(customer.email()),
 				String.valueOf(customer.phone()), Long.toString(amountPaise), dueDate.toString());
 		try {
@@ -190,6 +219,43 @@ class ImportService {
 
 	private record Analysis(CsvTable table, ColumnMapping mapping, List<String> missing, List<Checked> rows,
 			Summary summary) {
+	}
+
+	/**
+	 * One due's values as typed, in a CSV row or the form, checked and tidied. {@code errors} (field to message) is
+	 * empty when it can be added; the customer, amount, date and fingerprint are then all set.
+	 */
+	private record Entry(CustomerFields customer, Long amountPaise, LocalDate dueDate, Map<String, String> errors,
+			String importKey) {
+
+		/** @param emailColumn false for a file with only a phone column */
+		static Entry check(Map<String, String> values, boolean emailColumn) {
+			Map<String, String> errors = new LinkedHashMap<>();
+			CustomerFields.Parsed customer = CustomerFields.parse(values.get("name"), values.get("email"),
+					values.get("phone"));
+			errors.putAll(customer.errors());
+			if (errors.containsKey("email") && !emailColumn) {
+				// "Add an email or a phone number" belongs to whichever contact column the file has.
+				errors.put("phone", errors.remove("email"));
+			}
+			Long amountPaise = null;
+			try {
+				amountPaise = Amounts.parsePaise(values.get("amount"));
+			}
+			catch (CellException ex) {
+				errors.put("amount", ex.getMessage());
+			}
+			LocalDate dueDate = null;
+			try {
+				dueDate = DueDates.parse(values.get("dueDate"));
+			}
+			catch (CellException ex) {
+				errors.put("dueDate", ex.getMessage());
+			}
+			String importKey = errors.isEmpty() ? fingerprint(customer.fields(), amountPaise, dueDate) : null;
+			return new Entry(customer.fields(), amountPaise, dueDate, Map.copyOf(errors), importKey);
+		}
+
 	}
 
 	private record Checked(CsvRow row, Map<String, String> values, CustomerFields customer, Long amountPaise,
