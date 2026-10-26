@@ -61,14 +61,19 @@ class SecurityConfig implements WebMvcConfigurer {
 
 	@Bean
 	CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", cors(properties));
+		return source;
+	}
+
+	/** Patterns, so one entry can cover every Vercel preview of the web app; an exact origin is a pattern too. */
+	static CorsConfiguration cors(CorsProperties properties) {
 		CorsConfiguration cors = new CorsConfiguration();
-		cors.setAllowedOrigins(properties.allowedOrigins());
+		cors.setAllowedOriginPatterns(properties.allowedOrigins());
 		cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 		cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 		cors.setMaxAge(Duration.ofHours(1));
-		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-		source.registerCorsConfiguration("/**", cors);
-		return source;
+		return cors;
 	}
 
 	@Override

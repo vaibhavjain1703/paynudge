@@ -1,0 +1,89 @@
+name: Preview
+
+# Every pull request gets its own copy of the web app on Vercel, to try before anything reaches production. The link
+# shows on the PR ("View deployment") and in a comment. Previews use the live API, so a PR's backend changes appear
+# there only once they are deployed to production; test those locally. Vercel keeps previews private: sign in to
+# Vercel if it asks.
+on:
+  pull_request:
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  VERCEL_ORG_ID: team_xr4grliulSAILYr7phlpMI5G
+  VERCEL_PROJECT_ID: prj_K6SeDi6eimMvQ9WiI4kwQa7DoStm
+
+jobs:
+  preview:
+    name: Preview site
+    # Pull requests from forks get no secrets, so they cannot deploy.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check the Vercel token
+        id: token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::The VERCEL_TOKEN repo secret is not set; no preview site."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v5
+        if: steps.token.outputs.ready == 'true'
+        with:
+          node-version: "24"
+
+      - name: Deploy the preview
+        id: deploy
+        if: steps.token.outputs.ready == 'true'
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # The CLI prints the deployment's address on stdout and its progress on stderr.
+          url=$(npx --yes vercel@65.2.0 deploy --yes --token "$VERCEL_TOKEN" --meta githubPr=${{ github.event.pull_request.number }})
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Preview site" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url (commit ${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Link it on the pull request
+        if: steps.token.outputs.ready == 'true'
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        with:
+          script: |
+            const marker = "<!-- paynudge-preview -->";
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const body = [
+              marker,
+              `**Preview site:** ${process.env.PREVIEW_URL}`,
+              "",
+              `Built from ${sha}. It uses the live API, so this PR's backend changes appear only after a production deploy. Vercel may ask you to sign in.`,
+            ].join("\n");
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

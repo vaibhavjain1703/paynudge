@@ -25,7 +25,8 @@ export default defineConfig({
   workers: 2,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  reporter: "list",
+  // In CI an HTML report (with screenshots and traces) is kept with every run.
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: E2E_WEB_URL,
     trace: "retain-on-failure",
@@ -36,7 +37,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "mvn -q spring-boot:run",
+      // The Maven wrapper in CI, the installed mvn locally (see CLAUDE.md).
+      command: process.env.CI ? "./mvnw -B -ntp -q spring-boot:run" : "mvn -q spring-boot:run",
       cwd: "../backend",
       url: `${E2E_API_URL}/actuator/health`,
       // Codes always go to Mailpit here, even when secrets.local.env sends real mail through Brevo.
