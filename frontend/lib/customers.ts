@@ -30,19 +30,23 @@ export const customerKeys = {
 };
 
 // A light mirror of CustomerFields.java. The server tidies phones (+91...) and has the final say on both.
-export const customerSchema = z
-  .object({
-    name: z.string().trim().min(1, "Enter a name").max(200, "Keep the name under 200 characters"),
-    email: z.union([z.literal(""), z.string().trim().pipe(z.email("Enter a valid email address"))]),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^(\+?[\d\s().-]+)?$/, "Enter a 10-digit mobile number, or + and the country code"),
-  })
-  .refine((customer) => customer.email !== "" || customer.phone !== "", {
-    path: ["email"],
-    message: "Add an email or a phone number",
-  });
+export const customerFields = z.object({
+  name: z.string().trim().min(1, "Enter a name").max(200, "Keep the name under 200 characters"),
+  email: z.union([z.literal(""), z.string().trim().pipe(z.email("Enter a valid email address"))]),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^(\+?[\d\s().-]+)?$/, "Enter a 10-digit mobile number, or + and the country code"),
+});
+
+/** Every customer needs an email or a phone; the message goes under the email field. */
+export const hasContact: [(customer: { email: string; phone: string }) => boolean, { path: string[]; message: string }] =
+  [
+    (customer) => customer.email !== "" || customer.phone !== "",
+    { path: ["email"], message: "Add an email or a phone number" },
+  ];
+
+export const customerSchema = customerFields.refine(...hasContact);
 
 export type CustomerInput = z.infer<typeof customerSchema>;
 

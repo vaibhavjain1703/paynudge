@@ -24,7 +24,14 @@ export const expand = {
   exit: { opacity: 0, height: 0 },
 };
 
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+/** One view replacing another in place (a step of a flow, a tab): the old one lifts out, the new one rises in. */
+export const swap = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+};
+
+const REDUCED_MOTION ="(prefers-reduced-motion: reduce)";
 
 function subscribe(onChange: () => void) {
   const query = window.matchMedia(REDUCED_MOTION);

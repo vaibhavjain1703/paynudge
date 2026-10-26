@@ -46,7 +46,7 @@ export function DashboardView() {
         <EmptyState
           icon={FileSpreadsheet}
           title="No dues yet"
-          description="Import a CSV of who owes what and when. PayNudge schedules every reminder and stops the moment someone pays."
+          description="Import a CSV of who owes what and when, or add dues one at a time. PayNudge schedules every reminder and stops the moment someone pays."
           action={
             <Button asChild>
               <Link href="/import">Import dues</Link>
