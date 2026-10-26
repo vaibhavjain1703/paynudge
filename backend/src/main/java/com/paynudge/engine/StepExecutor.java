@@ -36,13 +36,15 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Runs one claimed step in one transaction that holds three row locks until it commits:
  * <ul>
- * <li>the step's own, so while this worker lives no one else can take the step over, however slow the send (the
- * reaper skips locked rows);</li>
  * <li>the due's, which a payment or the owner's cancel also takes: either it lands first and the step is cancelled
  * here, or it waits until the reminder has gone;</li>
  * <li>the customer's, which unsubscribing takes, and which keeps two of the customer's dues from emailing them in
- * the same moment.</li>
+ * the same moment;</li>
+ * <li>the step's own, so while this worker lives no one else can take the step over, however slow the send (the
+ * reaper skips locked rows).</li>
  * </ul>
+ * They are taken in that order, the order a payment, cancel or unsubscribe uses (the due or customer, then the due's
+ * steps), so none of them can deadlock with a reminder going out.
  * Then: closed or opted out, cancel; already sent (by a try that died before finishing), just finish; inside quiet
  * hours or too soon after the customer's last email, postpone. Otherwise record the message, send it and finish. If
  * the send fails the whole transaction rolls back, message row included, and the worker decides about a retry.
@@ -88,15 +90,14 @@ class StepExecutor {
 	/** @return true if an email went to the customer (and so used one of the business's sends for the day) */
 	@Transactional
 	boolean execute(ClaimedStep step) {
-		if (!holdStep(step)) {
-			// The lease ran out before this worker got going and the step is someone else's now (or the due was
-			// deleted, steps and all).
-			log.warn("Lease lost before running dueId={} stepKey={} attempt={}", step.dueId(), step.stepKey(),
-					step.attempt());
-			return false;
-		}
 		Optional<Locked> locked = lockDue(step.dueId());
 		if (locked.isEmpty()) {
+			return false; // the due was deleted, steps and all
+		}
+		if (!holdStep(step)) {
+			// The lease ran out before this worker got going, and the step is someone else's now.
+			log.warn("Lease lost before running dueId={} stepKey={} attempt={}", step.dueId(), step.stepKey(),
+					step.attempt());
 			return false;
 		}
 		DueFacts due = locked.get().facts();

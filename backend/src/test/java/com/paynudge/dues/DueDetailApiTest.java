@@ -45,8 +45,19 @@ class DueDetailApiTest extends IntegrationTest {
 		assertThat(paid).bodyJson().extractingPath("$.status").isEqualTo("PAID");
 		assertThat(paid).bodyJson().extractingPath("$.steps[*].status").isEqualTo(
 				Arrays.asList("DONE", "CANCELLED", "CANCELLED", "CANCELLED", "CANCELLED"));
-		assertThat(paid).bodyJson().extractingPath("$.messages[0]").isEqualTo(Map.of("stepKey", "remind_1", "channel",
-				"EMAIL", "subject", "A quick reminder from Bright Tuition", "sentAt", "2026-01-05T04:30:00Z"));
+		assertThat(paid).bodyJson().extractingPath("$.messages[0].stepKey").isEqualTo("remind_1");
+		assertThat(paid).bodyJson().extractingPath("$.messages[0].channel").isEqualTo("EMAIL");
+		assertThat(paid).bodyJson()
+			.extractingPath("$.messages[0].subject")
+			.isEqualTo("A quick reminder from Bright Tuition");
+		assertThat(paid).bodyJson().extractingPath("$.messages[0].sentAt").isEqualTo("2026-01-05T04:30:00Z");
+		assertThat(paid).bodyJson()
+			.extractingPath("$.messages[0].body")
+			.asString()
+			.as("the email as sent, for the timeline to show")
+			.startsWith("Hi Aarav,")
+			.contains("/pay/")
+			.contains("Stop these reminders:");
 		assertThat(paid).bodyJson().extractingPath("$.payments[0]").isEqualTo(Map.of("providerPaymentId", "pay_Q1",
 				"amountPaise", 150000, "method", "upi", "paidAt", "2026-01-19T07:00:00Z"));
 	}
