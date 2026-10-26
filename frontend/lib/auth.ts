@@ -15,12 +15,18 @@ export type Business = {
   quietEnd: string;
   senderName: string | null;
   dailySendCap: number;
+  /** Made by "Try the demo": sample data, deleted a day later. */
+  demo: boolean;
 };
 
 export type Me = {
   userId: number;
   email: string;
   business: Business;
+  features: {
+    /** Reminders stay in PayNudge (read them on a due's timeline) instead of being emailed, as on the live demo. */
+    remindersKept: boolean;
+  };
 };
 
 /**
@@ -119,6 +125,26 @@ export function useSignup() {
       api<AuthResult>("/api/auth/signup", { body: input, auth: false }),
     onSuccess: complete,
   });
+}
+
+/** "Try the demo": a new demo business full of sample data, signed in. */
+export function useStartDemo() {
+  const complete = useCompleteSignIn();
+  return useMutation({
+    mutationFn: () => api<AuthResult>("/api/auth/demo", { method: "POST", auth: false }),
+    onSuccess: complete,
+  });
+}
+
+/**
+ * Leaves a demo for the sign-up page: a demo owner has no way back in, so their session simply ends. A full page
+ * load, so nothing of the demo stays in memory and the app shell's own redirect to /login never gets a turn.
+ */
+export function useLeaveDemo() {
+  return () => {
+    window.location.replace("/signup");
+    setToken(null);
+  };
 }
 
 export function useSendEmailCode() {
