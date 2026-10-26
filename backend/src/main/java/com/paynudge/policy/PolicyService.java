@@ -103,6 +103,18 @@ public class PolicyService {
 		return new Snapshot(policy.getId(), policy.getName(), readJson(policy.getDefinition()), policy.getDefinition());
 	}
 
+	/** The id of one of the business's starter policies ("Friendly then firm", "Gentle", "Firm"). */
+	@Transactional
+	public long starterId(long businessId, String name) {
+		ensureStarters(businessId);
+		return this.policies.findByBusinessId(businessId)
+			.stream()
+			.filter((policy) -> policy.isStarter() && policy.getName().equals(name))
+			.findFirst()
+			.orElseThrow(() -> new IllegalArgumentException("No starter policy named " + name))
+			.getId();
+	}
+
 	/** @param json the definition exactly as stored, ready to copy into {@code dues.policy_snapshot} */
 	public record Snapshot(long policyId, String name, PolicyDefinition definition, String json) {
 	}

@@ -1,16 +1,18 @@
 "use client";
 
-import { AlertTriangle, Check, Clock, IndianRupee, SkipForward, UserRound, X } from "lucide-react";
+import { AlertTriangle, Check, Clock, IndianRupee, Mail, SkipForward, UserRound, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
 
-import type { DueDetail, DueStep, StepStatus } from "@/lib/dues";
+import { MessageDialog } from "@/components/dues/message-dialog";
+import type { DueDetail, DueMessage, DueStep, StepStatus } from "@/lib/dues";
 import { formatDateTime, formatPaise } from "@/lib/money";
 import { easeOut, useSafeTransition } from "@/lib/motion";
 import { describeDay } from "@/lib/policies";
 import { cn } from "@/lib/utils";
 
 type Entry =
-  | { kind: "step"; at: string; step: DueStep; sentAt?: string; subject?: string | null }
+  | { kind: "step"; at: string; step: DueStep; message?: DueMessage; subject?: string | null }
   | { kind: "payment"; at: string; amountPaise: number; method: string | null; manual: boolean }
   | { kind: "now"; at: string };
 
@@ -32,43 +34,52 @@ export function DueTimeline({ due, timeZone, now }: { due: DueDetail; timeZone: 
   const reached = nowIndex >= 0 ? nowIndex : entries.findLastIndex(isEvent);
   const rail = useSafeTransition({ duration: 0.3, ease: easeOut });
   const item = useSafeTransition({ duration: 0.25, ease: easeOut });
+  const [reading, setReading] = useState<DueMessage | null>(null);
 
   return (
-    <ol className="space-y-1" aria-label="Reminder timeline">
-      {entries.map((entry, index) => {
-        const next = entries[index + 1];
-        return (
-          <motion.li
-            key={entry.kind === "step" ? entry.step.key : entry.kind}
-            className="relative"
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ ...item, delay: Math.min(index, 8) * 0.04 }}
-          >
-            {next && (
-              // The rail from this entry's node to the next one's: through the gap and down to its centre.
-              <span
-                aria-hidden="true"
-                className="absolute left-3 w-px bg-border"
-                style={{ top: NODE_CENTRE[entry.kind], bottom: -(GAP + NODE_CENTRE[next.kind]) }}
-              >
-                {index < reached && (
-                  <motion.span
-                    className="absolute inset-0 origin-top bg-primary"
-                    initial={{ scaleY: 0 }}
-                    animate={{ scaleY: 1 }}
-                    transition={{ ...rail, delay: Math.min(index, 8) * 0.06 }}
-                  />
-                )}
-              </span>
-            )}
-            {entry.kind === "step" && <StepEntry entry={entry} timeZone={timeZone} />}
-            {entry.kind === "payment" && <PaymentEntry entry={entry} timeZone={timeZone} />}
-            {entry.kind === "now" && <NowMarker />}
-          </motion.li>
-        );
-      })}
-    </ol>
+    <>
+      <ol className="space-y-1" aria-label="Reminder timeline">
+        {entries.map((entry, index) => {
+          const next = entries[index + 1];
+          return (
+            <motion.li
+              key={entry.kind === "step" ? entry.step.key : entry.kind}
+              className="relative"
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ ...item, delay: Math.min(index, 8) * 0.04 }}
+            >
+              {next && (
+                // The rail from this entry's node to the next one's: through the gap and down to its centre.
+                <span
+                  aria-hidden="true"
+                  className="absolute left-3 w-px bg-border"
+                  style={{ top: NODE_CENTRE[entry.kind], bottom: -(GAP + NODE_CENTRE[next.kind]) }}
+                >
+                  {index < reached && (
+                    <motion.span
+                      className="absolute inset-0 origin-top bg-primary"
+                      initial={{ scaleY: 0 }}
+                      animate={{ scaleY: 1 }}
+                      transition={{ ...rail, delay: Math.min(index, 8) * 0.06 }}
+                    />
+                  )}
+                </span>
+              )}
+              {entry.kind === "step" && <StepEntry entry={entry} timeZone={timeZone} onRead={setReading} />}
+              {entry.kind === "payment" && <PaymentEntry entry={entry} timeZone={timeZone} />}
+              {entry.kind === "now" && <NowMarker />}
+            </motion.li>
+          );
+        })}
+      </ol>
+      <MessageDialog
+        message={reading}
+        to={due.customer.email}
+        timeZone={timeZone}
+        onOpenChange={(open) => !open && setReading(null)}
+      />
+    </>
   );
 }
 
@@ -86,7 +97,7 @@ function timelineOf(due: DueDetail, now: string): Entry[] {
       kind: "step",
       at: message?.sentAt ?? step.runAt,
       step,
-      sentAt: message?.sentAt,
+      message,
       subject: message?.channel === "EMAIL" ? message.subject : undefined,
     };
   });
@@ -147,7 +158,15 @@ function lookOf(step: DueStep): Look {
   return looks[step.status];
 }
 
-function StepEntry({ entry, timeZone }: { entry: Extract<Entry, { kind: "step" }>; timeZone: string }) {
+function StepEntry({
+  entry,
+  timeZone,
+  onRead,
+}: {
+  entry: Extract<Entry, { kind: "step" }>;
+  timeZone: string;
+  onRead: (message: DueMessage) => void;
+}) {
   const { step } = entry;
   const look = lookOf(step);
   const Icon = look.icon;
@@ -156,7 +175,7 @@ function StepEntry({ entry, timeZone }: { entry: Extract<Entry, { kind: "step" }
   const day = step.offsetDays === null ? null : describeDay(step.offsetDays);
   const when =
     step.status === "DONE"
-      ? `${step.action === "NOTIFY_OWNER" ? "Emailed you" : "Sent"} ${formatDateTime(entry.sentAt ?? step.runAt, timeZone)}`
+      ? `${step.action === "NOTIFY_OWNER" ? "Emailed you" : "Sent"} ${formatDateTime(entry.message?.sentAt ?? step.runAt, timeZone)}`
       : step.status === "PENDING" || step.status === "RUNNING"
         ? `Scheduled for ${formatDateTime(step.runAt, timeZone)}`
         : step.status === "SKIPPED"
@@ -198,6 +217,16 @@ function StepEntry({ entry, timeZone }: { entry: Extract<Entry, { kind: "step" }
         </div>
         <p className="text-xs text-muted-foreground">{when}</p>
         {entry.subject && <p className="truncate text-xs text-muted-foreground">“{entry.subject}”</p>}
+        {entry.message && (
+          <button
+            type="button"
+            onClick={() => onRead(entry.message!)}
+            className="inline-flex items-center gap-1 rounded text-xs font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <Mail className="size-3" aria-hidden="true" />
+            {entry.message.channel === "OWNER_EMAIL" ? "View alert" : "View email"}
+          </button>
+        )}
         {step.note && (step.status === "PENDING" || step.status === "RUNNING") && (
           <p className="text-xs text-info">{step.note}</p>
         )}

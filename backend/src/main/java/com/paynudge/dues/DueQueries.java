@@ -128,9 +128,9 @@ class DueQueries {
 
 	private List<MessageView> messages(long dueId) {
 		return this.jdbc.query("""
-				SELECT step_key, channel, subject, sent_at FROM messages WHERE due_id = ? ORDER BY sent_at, id""",
-				(rs, row) -> new MessageView(rs.getString("step_key"), rs.getString("channel"),
-						rs.getString("subject"), instant(rs, "sent_at")),
+				SELECT step_key, channel, subject, body, sent_at FROM messages WHERE due_id = ?
+				ORDER BY sent_at, id""", (rs, row) -> new MessageView(rs.getString("step_key"), rs.getString("channel"),
+				rs.getString("subject"), rs.getString("body"), instant(rs, "sent_at")),
 				dueId);
 	}
 

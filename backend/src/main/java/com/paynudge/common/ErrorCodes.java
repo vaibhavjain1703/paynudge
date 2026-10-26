@@ -19,6 +19,10 @@ public final class ErrorCodes {
 
 	public static final String FILE_TOO_LARGE = "FILE_TOO_LARGE";
 
+	public static final String BODY_TOO_LARGE = "BODY_TOO_LARGE";
+
+	public static final String RATE_LIMITED = "RATE_LIMITED";
+
 	public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 
 	private ErrorCodes() {

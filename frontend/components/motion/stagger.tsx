@@ -16,9 +16,9 @@ export function Stagger({
   className?: string;
   onView?: boolean;
   gap?: number;
-  as?: "div" | "section";
+  as?: "div" | "section" | "ol";
 }) {
-  const Component = as === "section" ? motion.section : motion.div;
+  const Component = as === "section" ? motion.section : as === "ol" ? motion.ol : motion.div;
   const trigger = onView
     ? { whileInView: "show", viewport: { once: true, amount: 0.3 } }
     : { animate: "show" };
@@ -29,10 +29,19 @@ export function Stagger({
   );
 }
 
-export function StaggerItem({ children, className }: { children: React.ReactNode; className?: string }) {
+export function StaggerItem({
+  children,
+  className,
+  as = "div",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  as?: "div" | "li";
+}) {
+  const Component = as === "li" ? motion.li : motion.div;
   return (
-    <motion.div className={className} variants={fadeUp}>
+    <Component className={className} variants={fadeUp}>
       {children}
-    </motion.div>
+    </Component>
   );
 }

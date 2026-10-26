@@ -54,6 +54,10 @@ public class Business {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
+	/** Made by "Try the demo": sample data, deleted after a day, owner notices never emailed. */
+	@Column(nullable = false, updatable = false)
+	private boolean demo;
+
 	protected Business() {
 	}
 
@@ -70,6 +74,13 @@ public class Business {
 	/** A new business with the default timezone, quiet hours and send cap. */
 	public static Business createFor(long ownerId, String name, Instant now) {
 		return new Business(ownerId, name, now);
+	}
+
+	/** A demo business: the defaults, marked so that it is cleaned up and never emails its (made-up) owner. */
+	public static Business createDemoFor(long ownerId, String name, Instant now) {
+		Business business = new Business(ownerId, name, now);
+		business.demo = true;
+		return business;
 	}
 
 	/** Replaces every editable setting. Callers validate first. */
@@ -113,6 +124,10 @@ public class Business {
 
 	public int getDailySendCap() {
 		return this.dailySendCap;
+	}
+
+	public boolean isDemo() {
+		return this.demo;
 	}
 
 	public Instant getCreatedAt() {

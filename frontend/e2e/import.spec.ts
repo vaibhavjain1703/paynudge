@@ -44,7 +44,8 @@ test("a messy spreadsheet imports with clear row errors", async ({ page, request
   await page.getByRole("button", { name: "Import 4 dues" }).click();
   const result = page.getByRole("status").filter({ hasText: "Imported 4 dues" });
   await expect(result).toContainText("3 new customers · 0 already in your list · 0 imported before · 7 with problems");
-  await expect(result).toContainText("First reminder goes out 3 Nov 2026, 10:00");
+  // The file's dates are fixed, so when the first reminder goes out depends on today; that it is scheduled does not.
+  await expect(result).toContainText("First reminder goes out");
 
   await page.getByRole("link", { name: "View dues" }).click();
   await expect(page).toHaveURL(/\/dues$/);

@@ -38,6 +38,13 @@ class AuthController {
 		return this.auth.login(request);
 	}
 
+	/** "Try the demo": a new demo business with sample data, signed in. Rate limited per address. */
+	@PostMapping("/auth/demo")
+	@ResponseStatus(HttpStatus.CREATED)
+	AuthResult demo() {
+		return this.auth.demo();
+	}
+
 	@GetMapping("/me")
 	MeResponse me(Caller caller) {
 		return this.auth.me(caller);

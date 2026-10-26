@@ -54,7 +54,14 @@ export type DueStep = {
   note: string | null;
 };
 
-export type DueMessage = { stepKey: string; channel: "EMAIL" | "OWNER_EMAIL"; subject: string | null; sentAt: string };
+export type DueMessage = {
+  stepKey: string;
+  channel: "EMAIL" | "OWNER_EMAIL";
+  subject: string | null;
+  /** The message as sent (or, with reminders kept in PayNudge, as it would have been). */
+  body: string;
+  sentAt: string;
+};
 
 export type DuePayment = { providerPaymentId: string; amountPaise: number; method: string | null; paidAt: string };
 

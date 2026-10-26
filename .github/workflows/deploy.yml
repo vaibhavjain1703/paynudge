@@ -1,0 +1,93 @@
+name: Deploy
+
+# After CI passes on main: the API to Render (it builds the Dockerfile; a new version only takes traffic once its
+# health check passes, so a broken one never replaces the running one), then the web app to Vercel, then a smoke test.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# Where things run. The ids are not secrets; the two tokens are (RENDER_API_KEY and VERCEL_TOKEN repo secrets).
+env:
+  API_URL: https://paynudge-api-mbjk.onrender.com
+  WEB_URL: https://getpaynudge.vercel.app
+  RENDER_SERVICE_ID: srv-dbfjlgijnfac73ckmtq0
+  VERCEL_ORG_ID: team_xr4grliulSAILYr7phlpMI5G
+  VERCEL_PROJECT_ID: prj_K6SeDi6eimMvQ9WiI4kwQa7DoStm
+
+jobs:
+  deploy:
+    name: Deploy API and web app
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check the deploy secrets
+        id: secrets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::The RENDER_API_KEY and VERCEL_TOKEN repo secrets are not set; skipping the deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy the API on Render
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          deploy=$(curl -fsS -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"$COMMIT\"}" | jq -r .id)
+          echo "Render deploy $deploy for $COMMIT"
+          # The free plan builds and starts slowly (about 5 to 10 minutes in all).
+          for i in $(seq 1 90); do
+            status=$(curl -fsS "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$deploy" \
+              -H "Authorization: Bearer $RENDER_API_KEY" | jq -r .status)
+            echo "status: $status"
+            case "$status" in
+              live) exit 0 ;;
+              build_failed|update_failed|canceled|deactivated|pre_deploy_failed) exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "Timed out waiting for Render" && exit 1
+
+      - uses: actions/setup-node@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version: "24"
+
+      - name: Deploy the web app on Vercel
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@65.2.0 deploy --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: Smoke test
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          curl -fsS --retry 5 --retry-delay 10 --retry-all-errors "$API_URL/actuator/health" | grep -q '"UP"'
+          curl -fsS --retry 5 --retry-delay 10 --retry-all-errors -o /dev/null "$WEB_URL/"
+          curl -fsS -o /dev/null -X OPTIONS "$API_URL/api/auth/demo" \
+            -H "Origin: $WEB_URL" -H "Access-Control-Request-Method: POST"
+          echo "API and web app are up"
