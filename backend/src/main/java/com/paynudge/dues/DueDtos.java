@@ -43,7 +43,8 @@ final class DueDtos {
 			String tone, String error, String note) {
 	}
 
-	record MessageView(String stepKey, String channel, String subject, Instant sentAt) {
+	/** @param body the message exactly as sent (or, with reminders kept in PayNudge, as it would have been) */
+	record MessageView(String stepKey, String channel, String subject, String body, Instant sentAt) {
 	}
 
 	record PaymentView(String providerPaymentId, long amountPaise, String method, Instant paidAt) {

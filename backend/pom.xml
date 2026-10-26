@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<commons-csv.version>1.14.1</commons-csv.version>
+		<bucket4j.version>8.14.0</bucket4j.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -71,6 +72,15 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-csv</artifactId>
 			<version>${commons-csv.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
 		</dependency>
 
 		<dependency>

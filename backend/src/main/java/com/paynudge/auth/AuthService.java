@@ -60,6 +60,12 @@ class AuthService {
 		return this.accounts.signIn(user.get());
 	}
 
+	/** A demo business full of sample data, and a session for it. */
+	@Transactional
+	AuthResult demo() {
+		return this.accounts.createDemo();
+	}
+
 	@Transactional(readOnly = true)
 	MeResponse me(Caller caller) {
 		return this.accounts.me(caller);

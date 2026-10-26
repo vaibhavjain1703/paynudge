@@ -96,7 +96,14 @@ final class AuthDtos {
 
 	}
 
-	record MeResponse(long userId, String email, BusinessResponse business) {
+	record MeResponse(long userId, String email, BusinessResponse business, Features features) {
+	}
+
+	/**
+	 * What this server does, so the web app can say so. {@code remindersKept}: reminders stay in PayNudge, where the
+	 * owner reads them, instead of being emailed ({@code REMINDER_DELIVERY=outbox}, as on the live demo).
+	 */
+	record Features(boolean remindersKept) {
 	}
 
 	static String normalizeEmail(String email) {

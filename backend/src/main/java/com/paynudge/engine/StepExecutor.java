@@ -121,7 +121,7 @@ class StepExecutor {
 		}
 		return switch (definition.action()) {
 			case SEND_EMAIL -> remindCustomer(step, definition, due);
-			case NOTIFY_OWNER -> notifyOwner(step, due);
+			case NOTIFY_OWNER -> notifyOwner(step, due, locked.get().demo());
 		};
 	}
 
@@ -158,17 +158,20 @@ class StepExecutor {
 		return true;
 	}
 
-	private boolean notifyOwner(ClaimedStep step, DueFacts due) {
+	/** A demo business's owner is made up, so their notice is only kept (it shows on the timeline). */
+	private boolean notifyOwner(ClaimedStep step, DueFacts due, boolean demo) {
 		if (!alreadySent(step, OWNER_CHANNEL)) {
 			Composed notice = Reminders.ownerNotice(due, this.links);
 			long recorded = record(step, OWNER_CHANNEL, notice, this.clock.instant());
-			try {
-				String providerId = this.ownerMail
-					.send(new EmailMessage(due.ownerEmail(), notice.subject(), notice.text(), null));
-				this.jdbc.update("UPDATE messages SET provider_id = ? WHERE id = ?", providerId, recorded);
-			}
-			catch (EmailDeliveryException ex) {
-				throw new ChannelException(ex.getMessage(), ex, ex.permanent());
+			if (!demo) {
+				try {
+					String providerId = this.ownerMail
+						.send(new EmailMessage(due.ownerEmail(), notice.subject(), notice.text(), null));
+					this.jdbc.update("UPDATE messages SET provider_id = ? WHERE id = ?", providerId, recorded);
+				}
+				catch (EmailDeliveryException ex) {
+					throw new ChannelException(ex.getMessage(), ex, ex.permanent());
+				}
 			}
 		}
 		finish(step, StepStatus.DONE, null);
@@ -233,7 +236,7 @@ class StepExecutor {
 				SELECT d.id, d.status, d.amount_paise, d.due_date, d.pay_token, d.policy_snapshot::text AS policy,
 				       c.id AS customer_id, c.name AS customer_name, c.email AS customer_email, c.opted_out,
 				       c.unsub_token, b.name AS business_name, b.timezone, b.quiet_start, b.quiet_end,
-				       u.email AS owner_email
+				       u.email AS owner_email, b.demo
 				FROM dues d
 				JOIN customers c ON c.id = d.customer_id
 				JOIN businesses b ON b.id = d.business_id
@@ -246,11 +249,11 @@ class StepExecutor {
 				rs.getString("owner_email"),
 				SendWindow.of(rs.getString("timezone"), rs.getObject("quiet_start", LocalTime.class),
 						rs.getObject("quiet_end", LocalTime.class))),
-				this.json.readValue(rs.getString("policy"), PolicyDefinition.class)), dueId);
+				this.json.readValue(rs.getString("policy"), PolicyDefinition.class), rs.getBoolean("demo")), dueId);
 		return rows.stream().findFirst();
 	}
 
-	private record Locked(DueFacts facts, PolicyDefinition policy) {
+	private record Locked(DueFacts facts, PolicyDefinition policy, boolean demo) {
 	}
 
 }

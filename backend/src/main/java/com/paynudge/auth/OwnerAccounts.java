@@ -2,15 +2,20 @@ package com.paynudge.auth;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
 
 import com.paynudge.auth.AuthDtos.AuthResult;
+import com.paynudge.auth.AuthDtos.Features;
 import com.paynudge.auth.AuthDtos.MeResponse;
 import com.paynudge.business.Business;
 import com.paynudge.business.BusinessRepository;
 import com.paynudge.business.BusinessResponse;
+import com.paynudge.channel.ReminderMailProperties;
 import com.paynudge.common.ApiException;
 import com.paynudge.common.ErrorCodes;
+import com.paynudge.common.Tokens;
+import com.paynudge.demo.DemoData;
 import com.paynudge.security.Caller;
 import com.paynudge.security.TokenService;
 import com.paynudge.security.TokenService.IssuedToken;
@@ -27,18 +32,28 @@ class OwnerAccounts {
 
 	static final String EMAIL_TAKEN = "EMAIL_TAKEN";
 
+	/** Where every demo owner's made-up address lives: the .invalid domain can never receive mail. */
+	static final String DEMO_EMAIL_DOMAIN = "@demo.paynudge.invalid";
+
 	private final UserAccountRepository users;
 
 	private final BusinessRepository businesses;
 
 	private final TokenService tokens;
 
+	private final DemoData demoData;
+
+	private final Features features;
+
 	private final Clock clock;
 
-	OwnerAccounts(UserAccountRepository users, BusinessRepository businesses, TokenService tokens, Clock clock) {
+	OwnerAccounts(UserAccountRepository users, BusinessRepository businesses, TokenService tokens, DemoData demoData,
+			ReminderMailProperties reminders, Clock clock) {
 		this.users = users;
 		this.businesses = businesses;
 		this.tokens = tokens;
+		this.demoData = demoData;
+		this.features = new Features(reminders.delivery() == ReminderMailProperties.Delivery.OUTBOX);
 		this.clock = clock;
 	}
 
@@ -64,6 +79,20 @@ class OwnerAccounts {
 			throw emailTaken();
 		}
 		Business business = this.businesses.save(Business.createFor(user.getId(), businessName, now));
+		return signedIn(user, business);
+	}
+
+	/**
+	 * A demo owner and business, filled with sample data and signed in. The owner has no password and a made-up
+	 * address, so this session is the only way in. Callers run this inside their transaction.
+	 */
+	AuthResult createDemo() {
+		Instant now = this.clock.instant();
+		String email = "demo-" + Tokens.random().substring(0, 20).toLowerCase(Locale.ROOT) + DEMO_EMAIL_DOMAIN;
+		UserAccount user = this.users.saveAndFlush(new UserAccount(email, null, now));
+		Business business = this.businesses
+			.saveAndFlush(Business.createDemoFor(user.getId(), DemoData.BUSINESS_NAME, now));
+		this.demoData.seed(business.getId(), now);
 		return signedIn(user, business);
 	}
 
@@ -103,8 +132,8 @@ class OwnerAccounts {
 		return AuthResult.signedIn(token.value(), token.expiresAt(), toMe(user, business));
 	}
 
-	private static MeResponse toMe(UserAccount user, Business business) {
-		return new MeResponse(user.getId(), user.getEmail(), BusinessResponse.from(business));
+	private MeResponse toMe(UserAccount user, Business business) {
+		return new MeResponse(user.getId(), user.getEmail(), BusinessResponse.from(business), this.features);
 	}
 
 	private static ApiException emailTaken() {

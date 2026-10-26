@@ -35,7 +35,7 @@ class SecurityConfig implements WebMvcConfigurer {
 			.requestCache(cache -> cache.disable())
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login", "/api/auth/email/start",
-						"/api/auth/email/verify", "/api/auth/google")
+						"/api/auth/email/verify", "/api/auth/google", "/api/auth/demo")
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/auth/providers").permitAll()
 				// Razorpay calls this; the signature, not a session, proves who it is.

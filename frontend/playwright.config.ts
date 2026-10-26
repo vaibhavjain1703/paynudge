@@ -50,6 +50,8 @@ export default defineConfig({
         // One-click unsubscribe links in reminder headers point at this API.
         API_URL: E2E_API_URL,
         RAZORPAY_WEBHOOK_SECRET: E2E_WEBHOOK_SECRET,
+        // Dozens of owners sign up from this one address; the limits have their own API test.
+        RATE_LIMITS_ENABLED: "false",
       },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
