@@ -125,7 +125,8 @@ class OwnerIsolationTest extends IntegrationTest {
 		assertThat(getAs(this.asha, "/api/dues/" + this.ashasDue)).bodyJson()
 			.extractingPath("$.status")
 			.isEqualTo("SCHEDULED");
-		assertThat(this.jdbc.queryForObject("SELECT count(*) FROM due_steps WHERE status = 'PENDING'", Long.class))
+		assertThat(this.jdbc.queryForObject("SELECT count(*) FROM due_steps WHERE due_id = ? AND status = 'PENDING'",
+				Long.class, this.ashasDue))
 			.isEqualTo(1);
 	}
 
@@ -188,6 +189,22 @@ class OwnerIsolationTest extends IntegrationTest {
 			.bodyJson()
 			.extractingPath("$.details.policyId")
 			.isNotNull());
+		checks.put("POST /api/import/manual", () -> {
+			Map<String, Object> kabir = new HashMap<>(
+					Map.of("name", "Kabir", "email", "kabir@example.com", "amount", "1500", "dueDate", "2026-02-01"));
+			kabir.put("policyId", this.ashasPolicy);
+			assertThat(postAs(this.ravi, "/api/import/manual", kabir)).hasStatus(HttpStatus.BAD_REQUEST)
+				.bodyJson()
+				.extractingPath("$.details.policyId")
+				.isNotNull();
+			kabir.put("policyId", starterId(this.ravi));
+			assertThat(postAs(this.ravi, "/api/import/manual", kabir))
+				.as("Asha's customer's email is someone new to Ravi")
+				.hasStatus(HttpStatus.CREATED)
+				.bodyJson()
+				.extractingPath("$.newCustomer")
+				.isEqualTo(true);
+		});
 		checks.put("POST /api/dues", () -> {
 			MvcTestResult withHerCustomer = postAs(this.ravi, "/api/dues", Map.of("customerId", this.ashasCustomer,
 					"amountPaise", 1000, "dueDate", "2026-02-01", "policyId", starterId(this.ravi)));

@@ -1,14 +1,25 @@
 "use client";
 
-import type { ImportPreview } from "@/lib/imports";
+import type { ImportPreview, ManualEntryInput } from "@/lib/imports";
 import { getToken } from "@/lib/session";
 
-/** The file being checked on the Import page, with its preview and the policy the owner picked. */
-export type ImportDraft = { file: File; preview: ImportPreview; policyId?: number };
+/** Upload a CSV, or type one due in by hand. */
+export type ImportMode = "csv" | "manual";
+
+/**
+ * Where the owner left the Import page: which way they were adding dues, the policy they picked, the file being
+ * checked (with its preview) and the due being typed in.
+ */
+export type ImportDraft = {
+  mode: ImportMode;
+  policyId?: number;
+  csv?: { file: File; preview: ImportPreview };
+  entry?: Partial<ManualEntryInput>;
+};
 
 /**
  * Kept while the owner visits other pages and comes back. It lives only in memory and belongs to the session that
- * chose it, so logging out (or in as someone else) or reloading the tab starts over, and customer data is never
+ * made it, so logging out (or in as someone else) or reloading the tab starts over, and customer data is never
  * written to browser storage.
  */
 let saved: (ImportDraft & { token: string | null }) | undefined;
@@ -18,8 +29,9 @@ export function loadImportDraft(): ImportDraft | undefined {
   return saved;
 }
 
-export function saveImportDraft(draft: ImportDraft | undefined) {
-  saved = draft && { ...draft, token: getToken() };
+/** Updates part of the draft; `{ csv: undefined }` lets the file go and keeps the rest. */
+export function saveImportDraft(change: Partial<ImportDraft>) {
+  saved = { ...(loadImportDraft() ?? { mode: "csv" }), ...change, token: getToken() };
 }
 
 /**

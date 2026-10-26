@@ -24,14 +24,16 @@ export function TextField<T extends FieldValues, TOut extends FieldValues = T>({
   type = "text",
   autoComplete,
   inputMode,
+  placeholder,
   description,
 }: {
   control: Control<T, unknown, TOut>;
   name: FieldPath<T>;
   label: string;
-  type?: "text" | "email" | "password" | "time";
+  type?: "text" | "email" | "password" | "time" | "date";
   autoComplete?: string;
-  inputMode?: "text" | "numeric" | "email";
+  inputMode?: "text" | "numeric" | "decimal" | "email";
+  placeholder?: string;
   description?: string;
 }) {
   return (
@@ -47,6 +49,7 @@ export function TextField<T extends FieldValues, TOut extends FieldValues = T>({
             type={type}
             autoComplete={autoComplete}
             inputMode={inputMode}
+            placeholder={placeholder}
             aria-invalid={fieldState.invalid}
             aria-describedby={description ? `${name}-description` : undefined}
           />

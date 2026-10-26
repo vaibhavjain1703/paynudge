@@ -76,12 +76,23 @@ public class DueService {
 		this.events = events;
 	}
 
-	/** One due imported from a CSV row; {@code importKey} fingerprints the row so a re-import skips it. */
+	/**
+	 * One due imported from a CSV row or typed in on the import page; {@code importKey} fingerprints it so the same
+	 * due is never added twice.
+	 */
 	public record ImportedDue(long customerId, long amountPaise, LocalDate dueDate, String importKey) {
 	}
 
-	/** @param firstReminderAt when the earliest customer email goes out, or null if none will */
-	public record ImportOutcome(int created, Instant firstReminderAt) {
+	/**
+	 * @param ids the new dues, in the order given
+	 * @param firstReminderAt when the earliest customer email goes out, or null if none will
+	 */
+	public record ImportOutcome(List<Long> ids, Instant firstReminderAt) {
+
+		public int created() {
+			return this.ids.size();
+		}
+
 	}
 
 	/**
@@ -95,7 +106,16 @@ public class DueService {
 			.map((due) -> new DueWriter.NewDue(due.customerId(), due.amountPaise(), due.dueDate(), due.importKey()))
 			.toList());
 		this.events.publishEvent(new DuesChanged(businessId));
-		return new ImportOutcome(created.ids().size(), created.firstReminderAt());
+		return new ImportOutcome(created.ids(), created.firstReminderAt());
+	}
+
+	/** The business's due with this import key, if any. */
+	public Optional<Long> findByImportKey(long businessId, String importKey) {
+		return this.jdbc
+			.queryForList("SELECT id FROM dues WHERE business_id = ? AND import_key = ?", Long.class, businessId,
+					importKey)
+			.stream()
+			.findFirst();
 	}
 
 	/** Which of these import keys already belong to one of the business's dues. */

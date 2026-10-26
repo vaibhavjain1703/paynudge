@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-import { signInAsNewOwner } from "./session";
+import { signInAsNewOwner, uniqueEmail } from "./session";
 
 const MESSY_CSV = path.resolve("e2e/fixtures/messy-dues.csv");
 
@@ -142,4 +142,85 @@ test("logging out forgets a file that was being checked", async ({ page, request
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Import", exact: true }).click();
   await expect(page.getByText("Drop a CSV file here, or click to choose one")).toBeVisible();
   await expect(page.getByText("messy-dues.csv")).toBeHidden();
+});
+
+/** yyyy-mm-dd, a month ahead: far enough that no reminder goes out during the test. */
+function aMonthAhead() {
+  return new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+}
+
+test("a due added by hand shows up in dues, and the same due is never added twice", async ({ page, request }) => {
+  await signInAsNewOwner(page, request);
+  const menu = page.getByRole("navigation", { name: "Main" });
+  const email = uniqueEmail("rohan");
+  const dueDate = aMonthAhead();
+  await page.goto("/import");
+  await page.getByRole("tab", { name: "Add manually" }).click();
+
+  await page.getByLabel("Name", { exact: true }).fill("Rohan Gupta");
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Phone (optional)").fill("98765 43210");
+  await page.getByLabel("Amount (₹)").fill("8,500");
+  await page.getByLabel("Due date").fill(dueDate);
+  await expect(page.getByText("4 emails, from 2 days before to 10 days after")).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("manual-entry.png"), fullPage: true });
+  await page.getByRole("button", { name: "Add due" }).click();
+
+  const result = page.getByRole("status").filter({ hasText: "Added ₹8,500 for Rohan Gupta" });
+  await expect(result).toContainText("New customer");
+  await expect(result).toContainText("First reminder goes out");
+  await page.screenshot({ path: test.info().outputPath("manual-entry-added.png"), fullPage: true });
+
+  // It is in the dues list, and the customer in the customer list.
+  await page.getByRole("link", { name: "View dues" }).click();
+  await expect(page).toHaveURL(/\/dues$/);
+  await expect(page.getByRole("row", { name: /Rohan Gupta/ })).toContainText("₹8,500");
+  await menu.getByRole("link", { name: "Customers", exact: true }).click();
+  await expect(page.getByRole("row", { name: /Rohan Gupta/ })).toContainText(email);
+
+  // The same due again (typed a little differently) is refused, with a way to the one already there.
+  await menu.getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Add manually" })).toHaveAttribute("aria-selected", "true");
+  await page.getByLabel("Name", { exact: true }).fill("rohan gupta");
+  await page.getByLabel("Email", { exact: true }).fill(email.toUpperCase());
+  await page.getByLabel("Phone (optional)").fill("+91 98765-43210");
+  await page.getByLabel("Amount (₹)").fill("8500");
+  await page.getByLabel("Due date").fill(dueDate);
+  await page.getByRole("button", { name: "Add due" }).click();
+  await expect(page.getByText("This due is already in your list, so it was not added again.")).toBeVisible();
+  await page.getByRole("link", { name: "Open it" }).click();
+  await expect(page).toHaveURL(/\/dues\/\d+$/);
+  await expect(page.getByText("Rohan Gupta").first()).toBeVisible();
+});
+
+test("a due being typed in waits while the owner looks at other pages", async ({ page, request }) => {
+  await signInAsNewOwner(page, request);
+  const menu = page.getByRole("navigation", { name: "Main" });
+  await page.goto("/import");
+  await page.getByRole("tab", { name: "Add manually" }).click();
+
+  // Nothing filled in: every field says what it needs.
+  await page.getByRole("button", { name: "Add due" }).click();
+  await expect(page.getByText("Enter a name")).toBeVisible();
+  await expect(page.getByText("Add an email or a phone number")).toBeVisible();
+  await expect(page.getByText("Enter the amount")).toBeVisible();
+  await expect(page.getByText("Enter the due date")).toBeVisible();
+
+  await page.getByLabel("Name", { exact: true }).fill("Diya Rao");
+  await page.getByLabel("Amount (₹)").fill("1,500.50");
+  await page.getByLabel("Reminder policy").selectOption({ label: "Gentle" });
+
+  await menu.getByRole("link", { name: "Dues", exact: true }).click();
+  await expect(page).toHaveURL(/\/dues$/);
+  await menu.getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Add manually" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Diya Rao");
+  await expect(page.getByLabel("Amount (₹)")).toHaveValue("1,500.50");
+  await expect(page.getByLabel("Reminder policy").locator("option:checked")).toHaveText("Gentle");
+
+  // The CSV tab is one click away, and back again keeps what was typed.
+  await page.getByRole("tab", { name: "Upload a CSV" }).click();
+  await expect(page.getByText("Drop a CSV file here, or click to choose one")).toBeVisible();
+  await page.getByRole("tab", { name: "Add manually" }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Diya Rao");
 });

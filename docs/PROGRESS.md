@@ -198,3 +198,16 @@ Done when: a test payment flips the due to PAID live.
 - `RAZORPAY_WEBHOOK_SECRET` is generated in `secrets.local.env`; on Day 8, with a public API URL, add the webhook in
   Razorpay (Test Mode, Webhooks, event `payment_link.paid`) with that secret.
 - One API process holds the live streams; more than one would need Postgres LISTEN/NOTIFY between them.
+
+## Between Days 7 and 8: add a due by hand on the import page
+
+- [x] Import page: "Upload a CSV" or "Add manually" tabs, one reminder policy choice for both. The manual form takes a
+  customer (name, email, phone) and a due (amount in rupees as typed, due date)
+- [x] `POST /api/import/manual`: the CSV row rules in one call. Same checks and messages, the same customer when the
+  email (or, without one, the phone) is already in the list, who keeps their own details, and the same fingerprint, so
+  the same due typed twice, or typed after it was imported (or imported after it was typed), is refused with
+  `DUE_EXISTS` and a link to the one already there
+- [x] The new due reaches open dues pages live ("dues" event); what is typed survives a visit to another page, in
+  memory only, like a file being checked
+- [x] e2e: a due added by hand shows in Dues and Customers, a second try links to the first; an empty form names every
+  missing field; a half-typed due is still there after visiting Dues
