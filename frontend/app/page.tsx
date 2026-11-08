@@ -1,7 +1,8 @@
-import { ArrowRight, BellRing, CircleCheck, ShieldCheck } from "lucide-react";
+import { BellRing, CircleCheck, FileSpreadsheet, IndianRupee, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
 import { Wordmark } from "@/components/brand";
+import { HeroActions } from "@/components/landing/hero-actions";
 import { TimelineDemo } from "@/components/landing/timeline-demo";
 import { Stagger, StaggerItem } from "@/components/motion/stagger";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -22,6 +23,24 @@ const points = [
     icon: ShieldCheck,
     title: "Never sends twice",
     body: "Quiet hours, daily caps and an unsubscribe link on every message. Crashes never cause a double send.",
+  },
+];
+
+const steps = [
+  {
+    icon: FileSpreadsheet,
+    title: "Bring your dues",
+    body: "Upload a CSV from Excel or Google Sheets, or add dues one at a time. Every row is checked before anything is saved.",
+  },
+  {
+    icon: SlidersHorizontal,
+    title: "Pick a policy once",
+    body: "How firmly to follow up, and when. PayNudge plans every reminder around your quiet hours.",
+  },
+  {
+    icon: IndianRupee,
+    title: "Get paid",
+    body: "Each reminder carries a pay link for UPI, cards or netbanking. You see the payment the moment it lands.",
   },
 ];
 
@@ -57,19 +76,8 @@ export default function LandingPage() {
                 time until each customer pays.
               </p>
             </StaggerItem>
-            <StaggerItem className="flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/signup">
-                  Get started
-                  <ArrowRight
-                    className="transition-transform duration-200 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
-                    aria-hidden="true"
-                  />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/login">I have an account</Link>
-              </Button>
+            <StaggerItem>
+              <HeroActions />
             </StaggerItem>
           </Stagger>
 
@@ -89,7 +97,44 @@ export default function LandingPage() {
             </StaggerItem>
           ))}
         </Stagger>
+
+        <section aria-labelledby="how-heading" className="space-y-6">
+          <h2 id="how-heading" className="text-2xl font-semibold tracking-tight">
+            How it works
+          </h2>
+          <Stagger as="ol" onView className="grid gap-4 sm:grid-cols-3" gap={0.08}>
+            {steps.map(({ icon: Icon, title, body }, index) => (
+              <StaggerItem key={title} as="li" className="space-y-3 rounded-xl border bg-card p-5">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-8 place-items-center rounded-full bg-accent text-accent-foreground">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">Step {index + 1}</span>
+                </div>
+                <h3 className="font-medium">{title}</h3>
+                <p className="text-sm text-muted-foreground">{body}</p>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </section>
       </main>
+
+      <footer className="border-t">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6">
+          <p>PayNudge: payment reminders for small businesses in India.</p>
+          <nav aria-label="Footer" className="flex gap-4">
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <a href="https://github.com/vaibhavjain1703/paynudge" className="hover:text-foreground">
+              Source on GitHub
+            </a>
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -9,10 +9,8 @@ import jakarta.mail.internet.InternetAddress;
 
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.stereotype.Component;
 
 /** Customer reminders by email, through the reminder sandbox in {@link ReminderMailProperties}. */
-@Component
 class EmailChannel implements Channel, DisposableBean {
 
 	private final SmtpEmailSender sender;

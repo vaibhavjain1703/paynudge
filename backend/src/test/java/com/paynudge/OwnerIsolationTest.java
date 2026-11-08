@@ -45,6 +45,7 @@ class OwnerIsolationTest extends IntegrationTest {
 			Map.entry("POST /api/auth/email/verify", "sign-in: returns only the caller's own session"),
 			Map.entry("POST /api/auth/google", "sign-in: returns only the caller's own session"),
 			Map.entry("GET /api/auth/providers", "which sign-in methods are on"),
+			Map.entry("POST /api/auth/demo", "creates a new demo business; reads nothing that exists (DemoApiTest)"),
 			Map.entry("GET /api/public/unsubscribe/{token}", "the customer's own secret link (UnsubscribeApiTest)"),
 			Map.entry("POST /api/public/unsubscribe/{token}", "the customer's own secret link (UnsubscribeApiTest)"),
 			Map.entry("GET /api/public/pay/{token}", "the customer's own secret pay link (PayPageApiTest)"),

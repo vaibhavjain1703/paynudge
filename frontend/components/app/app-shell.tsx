@@ -1,7 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
-import { motion } from "motion/react";
+import { FlaskConical, LogOut } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -10,9 +10,9 @@ import { Wordmark } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLogout, useMe } from "@/lib/auth";
+import { useLeaveDemo, useLogout, useMe } from "@/lib/auth";
 import { useLiveUpdates } from "@/lib/live";
-import { easeOut } from "@/lib/motion";
+import { easeOut, expand, useSafeTransition } from "@/lib/motion";
 import { useToken } from "@/lib/session";
 
 /** Everything behind sign-in. Without a token (or once the API rejects it) the visitor goes to /login. */
@@ -45,6 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AppNav />
         </div>
       </header>
+      <DemoBanner />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         {token ? children : <PageSkeleton />}
       </main>
@@ -67,6 +68,33 @@ function BusinessName() {
     );
   }
   return <Skeleton className="h-4 w-28" />;
+}
+
+/** Inside a demo business: what it is, and the way to an account of one's own. */
+function DemoBanner() {
+  const me = useMe();
+  const leave = useLeaveDemo();
+  const transition = useSafeTransition({ duration: 0.25, ease: easeOut });
+  return (
+    <AnimatePresence initial={false}>
+      {me.data?.business.demo && (
+        <motion.div key="demo" {...expand} transition={transition} className="overflow-hidden border-b bg-accent/40">
+          <div
+            role="note"
+            className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 text-sm sm:px-6"
+          >
+            <p className="flex items-center gap-2">
+              <FlaskConical className="size-4 shrink-0 text-primary" aria-hidden="true" />
+              You&apos;re exploring a demo business. It&apos;s deleted after a day, and its reminders are never emailed.
+            </p>
+            <Button size="sm" variant="outline" onClick={leave}>
+              Create your own account
+            </Button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 function LogoutButton() {

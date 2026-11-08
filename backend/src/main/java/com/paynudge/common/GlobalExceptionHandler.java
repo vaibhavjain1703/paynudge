@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -60,6 +61,9 @@ class GlobalExceptionHandler {
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex) {
+		if (NestedExceptionUtils.getRootCause(ex) instanceof BodyTooLargeException tooLarge) {
+			return error(HttpStatus.CONTENT_TOO_LARGE, ErrorCodes.BODY_TOO_LARGE, tooLarge.getMessage());
+		}
 		return error(HttpStatus.BAD_REQUEST, ErrorCodes.MALFORMED_REQUEST, "Request body is missing or is not valid JSON");
 	}
 
